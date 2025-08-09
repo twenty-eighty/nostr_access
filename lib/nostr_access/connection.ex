@@ -51,7 +51,18 @@ defmodule Nostr.Connection do
   """
   @spec close_subscription(pid(), String.t()) :: :ok
   def close_subscription(conn_pid, sub_id) do
-    WebSockex.send_frame(conn_pid, {:text, Jason.encode!(["CLOSE", sub_id])})
+    if Process.alive?(conn_pid) do
+      try do
+        WebSockex.send_frame(conn_pid, {:text, Jason.encode!(["CLOSE", sub_id])})
+        :ok
+      rescue
+        _ -> :ok
+      catch
+        :exit, _ -> :ok
+      end
+    else
+      :ok
+    end
   end
 
   @doc """
