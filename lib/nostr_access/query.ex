@@ -109,10 +109,13 @@ defmodule Nostr.Query do
   end
 
   @impl GenServer
-  def handle_info({:eose, conn_pid, _sub_id}, state) do
+  def handle_info({:eose, conn_pid, sub_id}, state) do
     # Find which relay this connection belongs to
     case find_relay_for_connection(conn_pid, state) do
       {:ok, relay} ->
+        # Proactively close the subscription on the relay to avoid counting toward REQ limits
+        Nostr.Connection.close_subscription(conn_pid, sub_id)
+
         new_relay_states = Map.put(state.relay_states, relay, :eose)
         new_state = %{state | relay_states: new_relay_states}
 
@@ -290,6 +293,11 @@ defmodule Nostr.Query do
     # Cancel timers
     cancel_timer(state.idle_timer)
     cancel_timer(state.overall_timer)
+
+    # Close any open subscriptions to avoid server-side REQ accumulation
+    Enum.each(state.connections, fn {conn_pid, sub_id} ->
+      Nostr.Connection.close_subscription(conn_pid, sub_id)
+    end)
 
     # Deduplicate events (without limit)
     dedup_strategy = Keyword.get(state.opts, :dedup_strategy, Nostr.Dedup.Default)
