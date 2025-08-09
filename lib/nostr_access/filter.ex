@@ -33,40 +33,65 @@ defmodule Nostr.Filter do
     Enum.reduce(filter, %{}, fn {key, value}, acc ->
       case key do
         # Known keys as strings → atoms
-        "ids" -> Map.put(acc, :ids, value)
-        "authors" -> Map.put(acc, :authors, value)
-        "kinds" -> Map.put(acc, :kinds, normalize_kinds_value(value))
-        "since" -> Map.put(acc, :since, value)
-        "until" -> Map.put(acc, :until, value)
-        "limit" -> Map.put(acc, :limit, value)
-        "search" -> Map.put(acc, :search, value)
+        "ids" ->
+          Map.put(acc, :ids, value)
+
+        "authors" ->
+          Map.put(acc, :authors, value)
+
+        "kinds" ->
+          Map.put(acc, :kinds, normalize_kinds_value(value))
+
+        "since" ->
+          Map.put(acc, :since, value)
+
+        "until" ->
+          Map.put(acc, :until, value)
+
+        "limit" ->
+          Map.put(acc, :limit, value)
+
+        "search" ->
+          Map.put(acc, :search, value)
+
         # Any other binary keys (including custom tags like "#e", "#p") stay as strings
-        bin when is_binary(bin) -> Map.put(acc, bin, value)
+        bin when is_binary(bin) ->
+          Map.put(acc, bin, value)
+
         # If already atoms, keep, but normalize kinds values
-        :kinds -> Map.put(acc, :kinds, normalize_kinds_value(value))
+        :kinds ->
+          Map.put(acc, :kinds, normalize_kinds_value(value))
+
         atom when is_atom(atom) ->
           atom_str = Atom.to_string(atom)
+
           if String.starts_with?(atom_str, "#") do
             # Normalize tag atoms like :"#d" to string keys "#d"
             Map.put(acc, atom_str, value)
           else
             Map.put(acc, atom, value)
           end
+
         # Fallback: keep as-is
-        other -> Map.put(acc, other, value)
+        other ->
+          Map.put(acc, other, value)
       end
     end)
   end
 
   defp normalize_kinds_value(kinds) when is_list(kinds) do
     Enum.map(kinds, fn
-      int when is_integer(int) -> int
+      int when is_integer(int) ->
+        int
+
       bin when is_binary(bin) ->
         case Integer.parse(bin) do
           {int, ""} -> int
           _ -> bin
         end
-      other -> other
+
+      other ->
+        other
     end)
   end
 
@@ -140,14 +165,20 @@ defmodule Nostr.Filter do
 
   defp maybe_convert_time(filter, key) do
     case Map.get(filter, key) do
-      nil -> filter
-      value when is_integer(value) -> filter
+      nil ->
+        filter
+
+      value when is_integer(value) ->
+        filter
+
       value when is_binary(value) ->
         case Integer.parse(value) do
           {int, ""} -> Map.put(filter, key, int)
           _ -> filter
         end
-      _ -> filter
+
+      _ ->
+        filter
     end
   end
 

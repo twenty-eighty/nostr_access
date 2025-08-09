@@ -31,6 +31,7 @@ defmodule Nostr.Dedup.Default do
     sorted_events
     |> Enum.reduce([], fn event, acc ->
       key = uniqueness_key(event)
+
       if Enum.any?(acc, fn existing -> uniqueness_key(existing) == key end) do
         acc
       else
@@ -43,7 +44,8 @@ defmodule Nostr.Dedup.Default do
   defp get_event_timestamp(event) do
     case event["created_at"] do
       timestamp when is_integer(timestamp) -> timestamp
-      _ -> 0  # Default to 0 for events without timestamp
+      # Default to 0 for events without timestamp
+      _ -> 0
     end
   end
 

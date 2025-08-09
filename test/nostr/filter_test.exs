@@ -10,10 +10,10 @@ defmodule Nostr.FilterTest do
     end
 
     test "validates time fields" do
-      filter = %{since: 1234567890, until: 1234567899}
+      filter = %{since: 1_234_567_890, until: 1_234_567_899}
       result = Nostr.Filter.validate!(filter)
 
-      assert result == %{since: 1234567890, until: 1234567899}
+      assert result == %{since: 1_234_567_890, until: 1_234_567_899}
     end
 
     test "validates limit field" do

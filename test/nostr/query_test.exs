@@ -9,21 +9,24 @@ defmodule Nostr.QueryTest do
           "id" => "event1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754000000,  # Oldest
+          # Oldest
+          "created_at" => 1_754_000_000,
           "content" => "oldest event"
         },
         %{
           "id" => "event2",
           "kind" => 0,
           "pubkey" => "pubkey2",
-          "created_at" => 1754100000,  # Second oldest
+          # Second oldest
+          "created_at" => 1_754_100_000,
           "content" => "second oldest event"
         },
         %{
           "id" => "event3",
           "kind" => 0,
           "pubkey" => "pubkey3",
-          "created_at" => 1754200000,  # Third oldest
+          # Third oldest
+          "created_at" => 1_754_200_000,
           "content" => "third oldest event"
         }
       ]
@@ -33,21 +36,24 @@ defmodule Nostr.QueryTest do
           "id" => "event4",
           "kind" => 0,
           "pubkey" => "pubkey4",
-          "created_at" => 1754300000,  # Third newest
+          # Third newest
+          "created_at" => 1_754_300_000,
           "content" => "third newest event"
         },
         %{
           "id" => "event5",
           "kind" => 0,
           "pubkey" => "pubkey5",
-          "created_at" => 1754400000,  # Second newest
+          # Second newest
+          "created_at" => 1_754_400_000,
           "content" => "second newest event"
         },
         %{
           "id" => "event6",
           "kind" => 0,
           "pubkey" => "pubkey6",
-          "created_at" => 1754500000,  # Newest
+          # Newest
+          "created_at" => 1_754_500_000,
           "content" => "newest event"
         }
       ]
@@ -67,7 +73,7 @@ defmodule Nostr.QueryTest do
 
       # Verify they are the 3 newest events
       returned_timestamps = Enum.map(final_events, & &1["created_at"])
-      expected_newest_timestamps = [1754500000, 1754400000, 1754300000]
+      expected_newest_timestamps = [1_754_500_000, 1_754_400_000, 1_754_300_000]
       assert returned_timestamps == expected_newest_timestamps
 
       # Verify the content matches the expected newest events
@@ -87,15 +93,19 @@ defmodule Nostr.QueryTest do
         "id" => "event1",
         "kind" => 0,
         "pubkey" => "pubkey1",
-        "created_at" => 1754000000,  # Older version
+        # Older version
+        "created_at" => 1_754_000_000,
         "content" => "older version"
       }
 
       relay2_duplicate = %{
-        "id" => "event2",  # Different ID but same pubkey (kind 0 deduplicates by pubkey)
+        # Different ID but same pubkey (kind 0 deduplicates by pubkey)
+        "id" => "event2",
         "kind" => 0,
-        "pubkey" => "pubkey1",  # Same pubkey
-        "created_at" => 1754500000,  # Newer version
+        # Same pubkey
+        "pubkey" => "pubkey1",
+        # Newer version
+        "created_at" => 1_754_500_000,
         "content" => "newer version"
       }
 
@@ -103,7 +113,7 @@ defmodule Nostr.QueryTest do
         "id" => "event3",
         "kind" => 0,
         "pubkey" => "pubkey2",
-        "created_at" => 1754200000,
+        "created_at" => 1_754_200_000,
         "content" => "unique event"
       }
 
@@ -118,7 +128,7 @@ defmodule Nostr.QueryTest do
       # Should keep the newer version of the duplicate
       newer_version = Enum.find(final_events, fn event -> event["pubkey"] == "pubkey1" end)
       assert newer_version["content"] == "newer version"
-      assert newer_version["created_at"] == 1754500000
+      assert newer_version["created_at"] == 1_754_500_000
 
       # Should also include the unique event
       unique_event_result = Enum.find(final_events, fn event -> event["pubkey"] == "pubkey2" end)
@@ -133,21 +143,22 @@ defmodule Nostr.QueryTest do
           "id" => "meta1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754000000,
+          "created_at" => 1_754_000_000,
           "content" => "old metadata"
         },
         %{
           "id" => "meta2",
           "kind" => 0,
-          "pubkey" => "pubkey1",  # Same pubkey, newer timestamp
-          "created_at" => 1754500000,
+          # Same pubkey, newer timestamp
+          "pubkey" => "pubkey1",
+          "created_at" => 1_754_500_000,
           "content" => "new metadata"
         },
         %{
           "id" => "meta3",
           "kind" => 0,
           "pubkey" => "pubkey2",
-          "created_at" => 1754200000,
+          "created_at" => 1_754_200_000,
           "content" => "other metadata"
         },
 
@@ -156,21 +167,22 @@ defmodule Nostr.QueryTest do
           "id" => "note1",
           "kind" => 1,
           "pubkey" => "pubkey3",
-          "created_at" => 1754100000,
+          "created_at" => 1_754_100_000,
           "content" => "old note"
         },
         %{
-          "id" => "note1",  # Same id, newer timestamp
+          # Same id, newer timestamp
+          "id" => "note1",
           "kind" => 1,
           "pubkey" => "pubkey3",
-          "created_at" => 1754400000,
+          "created_at" => 1_754_400_000,
           "content" => "new note"
         },
         %{
           "id" => "note2",
           "kind" => 1,
           "pubkey" => "pubkey4",
-          "created_at" => 1754300000,
+          "created_at" => 1_754_300_000,
           "content" => "unique note"
         }
       ]
@@ -187,12 +199,13 @@ defmodule Nostr.QueryTest do
 
       # Verify we got the newest versions
       assert Enum.find(final_events, fn event ->
-        event["kind"] == 0 && event["pubkey"] == "pubkey1" && event["content"] == "new metadata"
-      end)
+               event["kind"] == 0 && event["pubkey"] == "pubkey1" &&
+                 event["content"] == "new metadata"
+             end)
 
       assert Enum.find(final_events, fn event ->
-        event["kind"] == 1 && event["id"] == "note1" && event["content"] == "new note"
-      end)
+               event["kind"] == 1 && event["id"] == "note1" && event["content"] == "new note"
+             end)
     end
   end
 
@@ -222,12 +235,13 @@ defmodule Nostr.QueryTest do
     test "cache stores and retrieves mutable events correctly" do
       cache_key = {["wss://relay1.com", "wss://relay2.com"], "filter_hash"}
       filter = %{kinds: [0]}
+
       events = [
         %{
           "id" => "event1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754500000,
+          "created_at" => 1_754_500_000,
           "content" => "test event"
         }
       ]
@@ -244,12 +258,13 @@ defmodule Nostr.QueryTest do
     test "cache stores and retrieves immutable events correctly" do
       cache_key = {["wss://relay1.com", "wss://relay2.com"], "filter_hash"}
       filter = %{ids: ["event1"]}
+
       events = [
         %{
           "id" => "event1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754500000,
+          "created_at" => 1_754_500_000,
           "content" => "test event"
         }
       ]

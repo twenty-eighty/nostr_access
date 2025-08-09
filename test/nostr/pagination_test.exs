@@ -9,14 +9,14 @@ defmodule Nostr.PaginationTest do
           "id" => "event1",
           "kind" => 1,
           "pubkey" => "pubkey1",
-          "created_at" => 1754500000,
+          "created_at" => 1_754_500_000,
           "content" => "newest event"
         },
         %{
           "id" => "event2",
           "kind" => 1,
           "pubkey" => "pubkey2",
-          "created_at" => 1754400000,
+          "created_at" => 1_754_400_000,
           "content" => "second newest event"
         }
       ]
@@ -26,19 +26,20 @@ defmodule Nostr.PaginationTest do
           "id" => "event3",
           "kind" => 1,
           "pubkey" => "pubkey3",
-          "created_at" => 1754300000,
+          "created_at" => 1_754_300_000,
           "content" => "third newest event"
         },
         %{
           "id" => "event4",
           "kind" => 1,
           "pubkey" => "pubkey4",
-          "created_at" => 1754200000,
+          "created_at" => 1_754_200_000,
           "content" => "fourth newest event"
         }
       ]
 
-      events_batch_3 = []  # No more events
+      # No more events
+      events_batch_3 = []
 
       # Mock the Nostr.Client.fetch function
       test_pid = self()
@@ -64,39 +65,84 @@ defmodule Nostr.PaginationTest do
     test "respects global limit during pagination" do
       # Mock events with more than the global limit
       events_batch_1 = [
-        %{"id" => "event1", "kind" => 1, "pubkey" => "pubkey1", "created_at" => 1754500000, "content" => "event1"},
-        %{"id" => "event2", "kind" => 1, "pubkey" => "pubkey2", "created_at" => 1754400000, "content" => "event2"}
+        %{
+          "id" => "event1",
+          "kind" => 1,
+          "pubkey" => "pubkey1",
+          "created_at" => 1_754_500_000,
+          "content" => "event1"
+        },
+        %{
+          "id" => "event2",
+          "kind" => 1,
+          "pubkey" => "pubkey2",
+          "created_at" => 1_754_400_000,
+          "content" => "event2"
+        }
       ]
 
       events_batch_2 = [
-        %{"id" => "event3", "kind" => 1, "pubkey" => "pubkey3", "created_at" => 1754300000, "content" => "event3"},
-        %{"id" => "event4", "kind" => 1, "pubkey" => "pubkey4", "created_at" => 1754200000, "content" => "event4"}
+        %{
+          "id" => "event3",
+          "kind" => 1,
+          "pubkey" => "pubkey3",
+          "created_at" => 1_754_300_000,
+          "content" => "event3"
+        },
+        %{
+          "id" => "event4",
+          "kind" => 1,
+          "pubkey" => "pubkey4",
+          "created_at" => 1_754_200_000,
+          "content" => "event4"
+        }
       ]
 
       events_batch_3 = [
-        %{"id" => "event5", "kind" => 1, "pubkey" => "pubkey5", "created_at" => 1754100000, "content" => "event5"}
+        %{
+          "id" => "event5",
+          "kind" => 1,
+          "pubkey" => "pubkey5",
+          "created_at" => 1_754_100_000,
+          "content" => "event5"
+        }
       ]
 
       pagination_state = %{
         calls: 0,
         events_batches: [events_batch_1, events_batch_2, events_batch_3],
-        global_limit: 3  # Stop after 3 events
+        # Stop after 3 events
+        global_limit: 3
       }
 
       result = simulate_pagination(pagination_state, self())
 
-      assert result.total_events == 3  # Should stop at global limit
-      assert result.total_calls == 2   # Should stop after second call
+      # Should stop at global limit
+      assert result.total_events == 3
+      # Should stop after second call
+      assert result.total_calls == 2
       assert length(result.all_events) == 3
     end
 
     test "handles pagination with interval delays" do
       events_batch_1 = [
-        %{"id" => "event1", "kind" => 1, "pubkey" => "pubkey1", "created_at" => 1754500000, "content" => "event1"}
+        %{
+          "id" => "event1",
+          "kind" => 1,
+          "pubkey" => "pubkey1",
+          "created_at" => 1_754_500_000,
+          "content" => "event1"
+        }
       ]
 
       events_batch_2 = [
-        %{"id" => "event2", "kind" => 1, "pubkey" => "pubkey2", "created_at" => 1754400000, "content" => "event2"}
+        %{
+          "id" => "event2",
+          "kind" => 1,
+          "pubkey" => "pubkey2",
+          "created_at" => 1_754_400_000,
+          "content" => "event2"
+        }
       ]
 
       events_batch_3 = []
@@ -104,7 +150,8 @@ defmodule Nostr.PaginationTest do
       pagination_state = %{
         calls: 0,
         events_batches: [events_batch_1, events_batch_2, events_batch_3],
-        interval: 100  # 100ms interval
+        # 100ms interval
+        interval: 100
       }
 
       start_time = System.monotonic_time(:millisecond)
@@ -122,8 +169,20 @@ defmodule Nostr.PaginationTest do
     test "updates filter with until timestamp correctly" do
       # Test that the filter is updated with the timestamp of the last event
       events_batch_1 = [
-        %{"id" => "event1", "kind" => 1, "pubkey" => "pubkey1", "created_at" => 1754500000, "content" => "event1"},
-        %{"id" => "event2", "kind" => 1, "pubkey" => "pubkey2", "created_at" => 1754400000, "content" => "event2"}
+        %{
+          "id" => "event1",
+          "kind" => 1,
+          "pubkey" => "pubkey1",
+          "created_at" => 1_754_500_000,
+          "content" => "event1"
+        },
+        %{
+          "id" => "event2",
+          "kind" => 1,
+          "pubkey" => "pubkey2",
+          "created_at" => 1_754_400_000,
+          "content" => "event2"
+        }
       ]
 
       events_batch_2 = []
@@ -141,14 +200,21 @@ defmodule Nostr.PaginationTest do
       assert second_result.events_count == 0
 
       # Verify filter was updated with the timestamp of the last event
-      assert first_result.updated_filter[:until] == 1754400000
+      assert first_result.updated_filter[:until] == 1_754_400_000
     end
 
     test "handles events without created_at timestamp" do
       # Test pagination with events that don't have created_at
       events_batch_1 = [
-        %{"id" => "event1", "kind" => 1, "pubkey" => "pubkey1", "content" => "event1"},  # No created_at
-        %{"id" => "event2", "kind" => 1, "pubkey" => "pubkey2", "created_at" => 1754400000, "content" => "event2"}
+        # No created_at
+        %{"id" => "event1", "kind" => 1, "pubkey" => "pubkey1", "content" => "event1"},
+        %{
+          "id" => "event2",
+          "kind" => 1,
+          "pubkey" => "pubkey2",
+          "created_at" => 1_754_400_000,
+          "content" => "event2"
+        }
       ]
 
       # Test the actual pagination logic
@@ -167,8 +233,15 @@ defmodule Nostr.PaginationTest do
     test "handles empty results in first query" do
       # Test pagination when first query returns no results
       events_batch_1 = []
+
       events_batch_2 = [
-        %{"id" => "event1", "kind" => 1, "pubkey" => "pubkey1", "created_at" => 1754500000, "content" => "event1"}
+        %{
+          "id" => "event1",
+          "kind" => 1,
+          "pubkey" => "pubkey1",
+          "created_at" => 1_754_500_000,
+          "content" => "event1"
+        }
       ]
 
       pagination_state = %{
@@ -193,13 +266,19 @@ defmodule Nostr.PaginationTest do
     simulate_pagination_recursive(state, test_pid, [], [])
   end
 
-  defp simulate_pagination_recursive(%{calls: calls, events_batches: [current_batch | remaining_batches]} = state, test_pid, all_events, filters_used) do
+  defp simulate_pagination_recursive(
+         %{calls: calls, events_batches: [current_batch | remaining_batches]} = state,
+         test_pid,
+         all_events,
+         filters_used
+       ) do
     # Simulate the fetch call
     new_calls = calls + 1
     new_all_events = all_events ++ current_batch
 
     # Check global limit
     global_limit = Map.get(state, :global_limit, :infinity)
+
     if global_limit != :infinity and length(new_all_events) >= global_limit do
       %{
         total_events: length(Enum.take(new_all_events, global_limit)),
@@ -223,6 +302,7 @@ defmodule Nostr.PaginationTest do
 
         # Simulate interval delay
         interval = Map.get(state, :interval, 0)
+
         if interval > 0 do
           :timer.sleep(interval)
         end
@@ -251,25 +331,33 @@ defmodule Nostr.PaginationTest do
     simulate_pagination_with_filter_tracking_recursive(state, test_pid, [], [])
   end
 
-  defp simulate_pagination_with_filter_tracking_recursive(%{calls: calls, events_batches: [current_batch | remaining_batches]} = state, test_pid, all_events, filters_used) do
+  defp simulate_pagination_with_filter_tracking_recursive(
+         %{calls: calls, events_batches: [current_batch | remaining_batches]} = state,
+         test_pid,
+         all_events,
+         filters_used
+       ) do
     # Simulate the fetch call
     new_calls = calls + 1
     new_all_events = all_events ++ current_batch
 
     # Track the filter used (simulate initial filter)
-    current_filter = if calls == 0 do
-      %{kinds: [1], limit: 2}
-    else
-      # Get the last filter and update it
-      last_filter = List.last(filters_used)
-      if length(current_batch) > 0 do
-        last_event = List.last(current_batch)
-        until_timestamp = get_event_timestamp(last_event)
-        Map.put(last_filter, :until, until_timestamp)
+    current_filter =
+      if calls == 0 do
+        %{kinds: [1], limit: 2}
       else
-        last_filter
+        # Get the last filter and update it
+        last_filter = List.last(filters_used)
+
+        if length(current_batch) > 0 do
+          last_event = List.last(current_batch)
+          until_timestamp = get_event_timestamp(last_event)
+          Map.put(last_filter, :until, until_timestamp)
+        else
+          last_filter
+        end
       end
-    end
+
     new_filters_used = filters_used ++ [current_filter]
 
     if length(current_batch) == 0 do
@@ -291,7 +379,12 @@ defmodule Nostr.PaginationTest do
     end
   end
 
-  defp simulate_pagination_with_filter_tracking_recursive(%{calls: calls}, _test_pid, all_events, filters_used) do
+  defp simulate_pagination_with_filter_tracking_recursive(
+         %{calls: calls},
+         _test_pid,
+         all_events,
+         filters_used
+       ) do
     %{
       total_events: length(all_events),
       total_calls: calls,

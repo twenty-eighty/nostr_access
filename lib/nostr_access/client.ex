@@ -72,7 +72,7 @@ defmodule Nostr.Client do
     end
   end
 
-    @doc """
+  @doc """
   Cancels a streaming query.
 
   ## Examples
@@ -120,7 +120,9 @@ defmodule Nostr.Client do
 
   # Paginates by repeatedly decreasing :until and accumulating results
   defp fetch_paginated_canonical(relays, canonical_filter, opts) do
-    global_limit = Keyword.get(opts, :paginate_global_limit) || Map.get(canonical_filter, :limit) || :infinity
+    global_limit =
+      Keyword.get(opts, :paginate_global_limit) || Map.get(canonical_filter, :limit) || :infinity
+
     interval_ms = Keyword.get(opts, :paginate_interval, 0)
 
     do_fetch_pages(relays, canonical_filter, opts, global_limit, interval_ms, [])
@@ -136,12 +138,14 @@ defmodule Nostr.Client do
 
         # Stop if no more events from relays
         if length(events) == 0 do
-          {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+          {:ok,
+           finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
         else
           # Check global limit
           cond do
             global_limit != :infinity and length(new_acc) >= global_limit ->
-              {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+              {:ok,
+               finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
 
             true ->
               last_event = List.last(events)
@@ -199,6 +203,7 @@ defmodule Nostr.Client do
       {:ok, query_pid} ->
         Logger.info("Query started successfully: #{inspect(query_pid)}")
         {:ok, query_pid}
+
       {:error, reason} ->
         Logger.error("Failed to start query: #{inspect(reason)}")
         {:error, reason}
