@@ -24,6 +24,7 @@ defmodule Nostr.Client do
   - `:paginate` - when true, perform repeated queries decreasing `:until` until no more events are returned or global limit reached (default: false)
   - `:paginate_global_limit` - total number of events to return across all pages; defaults to `filter[:limit]` or `:infinity`
   - `:paginate_interval` - delay in milliseconds between pages (default: 0)
+  - `:paginate_early_stop_threshold` - when a page returns fewer events than this value, stop paginating (default: 100)
 
   ## Examples
 
@@ -136,28 +137,49 @@ defmodule Nostr.Client do
       {:ok, events} ->
         new_acc = acc_events ++ events
 
-        # Stop if no more events from relays
-        if length(events) == 0 do
-          {:ok,
-           finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
-        else
-          # Check global limit
-          cond do
-            global_limit != :infinity and length(new_acc) >= global_limit ->
-              {:ok,
-               finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+        early_stop_threshold = Keyword.get(opts, :paginate_early_stop_threshold, 100)
 
-            true ->
-              last_event = List.last(events)
-              until_ts = get_event_timestamp(last_event)
-              next_filter = Map.put(canonical_filter, :until, until_ts)
+        cond do
+          # Early stop: fewer than threshold means likely last page
+          length(events) < early_stop_threshold ->
+            {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
 
-              if interval_ms > 0 do
-                :timer.sleep(interval_ms)
-              end
+          # Global cap reached
+          global_limit != :infinity and length(new_acc) >= global_limit ->
+            {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
 
-              do_fetch_pages(relays, next_filter, opts, global_limit, interval_ms, new_acc)
-          end
+          true ->
+            # Advance window using minimum created_at from this page
+            min_ts =
+              Enum.reduce(events, nil, fn ev, acc ->
+                ts = get_event_timestamp(ev)
+                cond do
+                  is_nil(acc) -> ts
+                  ts < acc -> ts
+                  true -> acc
+                end
+              end)
+
+            next_until = max((min_ts || System.system_time(:second)) - 1, 0)
+
+            # Stop if we crossed since boundary or until didn't move
+            since_boundary = Map.get(canonical_filter, :since)
+            prev_until = Map.get(canonical_filter, :until)
+
+            cond do
+              is_integer(since_boundary) and next_until <= since_boundary ->
+                {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+
+              prev_until == next_until ->
+                {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+
+              true ->
+                next_filter = Map.put(canonical_filter, :until, next_until)
+                if interval_ms > 0 do
+                  :timer.sleep(interval_ms)
+                end
+                do_fetch_pages(relays, next_filter, opts, global_limit, interval_ms, new_acc)
+            end
         end
 
       {:error, reason} ->
