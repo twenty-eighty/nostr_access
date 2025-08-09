@@ -32,24 +32,57 @@ defmodule Nostr.DedupTest do
 
     test "deduplicates addressable events by kind, pubkey, and d tag" do
       events = [
-        %{"id" => "event1", "kind" => 30000, "pubkey" => "pubkey1", "tags" => [["d", "tag1"]], "content" => "first"},
-        %{"id" => "event2", "kind" => 30000, "pubkey" => "pubkey1", "tags" => [["d", "tag1"]], "content" => "second"},
-        %{"id" => "event3", "kind" => 30000, "pubkey" => "pubkey1", "tags" => [["d", "tag2"]], "content" => "third"}
+        %{
+          "id" => "event1",
+          "kind" => 30000,
+          "pubkey" => "pubkey1",
+          "tags" => [["d", "tag1"]],
+          "content" => "first"
+        },
+        %{
+          "id" => "event2",
+          "kind" => 30000,
+          "pubkey" => "pubkey1",
+          "tags" => [["d", "tag1"]],
+          "content" => "second"
+        },
+        %{
+          "id" => "event3",
+          "kind" => 30000,
+          "pubkey" => "pubkey1",
+          "tags" => [["d", "tag2"]],
+          "content" => "third"
+        }
       ]
 
       result = Nostr.Dedup.Default.dedup(events, %{})
 
       assert length(result) == 2
-      tag1_events = Enum.filter(result, fn event ->
-        Enum.any?(event["tags"], fn tag -> tag == ["d", "tag1"] end)
-      end)
+
+      tag1_events =
+        Enum.filter(result, fn event ->
+          Enum.any?(event["tags"], fn tag -> tag == ["d", "tag1"] end)
+        end)
+
       assert length(tag1_events) == 1
     end
 
     test "handles events without d tag for addressable events" do
       events = [
-        %{"id" => "event1", "kind" => 30000, "pubkey" => "pubkey1", "tags" => [], "content" => "first"},
-        %{"id" => "event2", "kind" => 30000, "pubkey" => "pubkey1", "tags" => [], "content" => "second"}
+        %{
+          "id" => "event1",
+          "kind" => 30000,
+          "pubkey" => "pubkey1",
+          "tags" => [],
+          "content" => "first"
+        },
+        %{
+          "id" => "event2",
+          "kind" => 30000,
+          "pubkey" => "pubkey1",
+          "tags" => [],
+          "content" => "second"
+        }
       ]
 
       result = Nostr.Dedup.Default.dedup(events, %{})
@@ -65,8 +98,10 @@ defmodule Nostr.DedupTest do
     test "handles events with missing fields" do
       events = [
         %{"id" => "event1", "kind" => 1},
-        %{"id" => "event2"},  # missing kind
-        %{"kind" => 1}        # missing id
+        # missing kind
+        %{"id" => "event2"},
+        # missing id
+        %{"kind" => 1}
       ]
 
       result = Nostr.Dedup.Default.dedup(events, %{})
@@ -98,21 +133,24 @@ defmodule Nostr.DedupTest do
           "id" => "event1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754000000,  # Oldest
+          # Oldest
+          "created_at" => 1_754_000_000,
           "content" => "oldest event"
         },
         %{
           "id" => "event2",
           "kind" => 0,
           "pubkey" => "pubkey2",
-          "created_at" => 1754100000,  # Second oldest
+          # Second oldest
+          "created_at" => 1_754_100_000,
           "content" => "second oldest event"
         },
         %{
           "id" => "event3",
           "kind" => 0,
           "pubkey" => "pubkey3",
-          "created_at" => 1754200000,  # Third oldest
+          # Third oldest
+          "created_at" => 1_754_200_000,
           "content" => "third oldest event"
         }
       ]
@@ -123,21 +161,24 @@ defmodule Nostr.DedupTest do
           "id" => "event4",
           "kind" => 0,
           "pubkey" => "pubkey4",
-          "created_at" => 1754300000,  # Third newest
+          # Third newest
+          "created_at" => 1_754_300_000,
           "content" => "third newest event"
         },
         %{
           "id" => "event5",
           "kind" => 0,
           "pubkey" => "pubkey5",
-          "created_at" => 1754400000,  # Second newest
+          # Second newest
+          "created_at" => 1_754_400_000,
           "content" => "second newest event"
         },
         %{
           "id" => "event6",
           "kind" => 0,
           "pubkey" => "pubkey6",
-          "created_at" => 1754500000,  # Newest
+          # Newest
+          "created_at" => 1_754_500_000,
           "content" => "newest event"
         }
       ]
@@ -167,7 +208,7 @@ defmodule Nostr.DedupTest do
       # Verify the first 3 events are the newest ones
       first_three = Enum.take(result_deduped, 3)
       returned_timestamps = Enum.map(first_three, & &1["created_at"])
-      expected_newest_timestamps = [1754500000, 1754400000, 1754300000]
+      expected_newest_timestamps = [1_754_500_000, 1_754_400_000, 1_754_300_000]
       assert returned_timestamps == expected_newest_timestamps
 
       # Verify the content matches the expected newest events
@@ -188,21 +229,24 @@ defmodule Nostr.DedupTest do
           "id" => "event1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754000000,  # Older version
+          # Older version
+          "created_at" => 1_754_000_000,
           "content" => "older version"
         },
         %{
           "id" => "event2",
           "kind" => 0,
-          "pubkey" => "pubkey1",  # Same pubkey (duplicate for kind 0)
-          "created_at" => 1754500000,  # Newer version
+          # Same pubkey (duplicate for kind 0)
+          "pubkey" => "pubkey1",
+          # Newer version
+          "created_at" => 1_754_500_000,
           "content" => "newer version"
         },
         %{
           "id" => "event3",
           "kind" => 0,
           "pubkey" => "pubkey2",
-          "created_at" => 1754200000,
+          "created_at" => 1_754_200_000,
           "content" => "unique event"
         }
       ]
@@ -214,7 +258,7 @@ defmodule Nostr.DedupTest do
       # Should keep the newer version of the duplicate
       newer_version = Enum.find(result, fn event -> event["pubkey"] == "pubkey1" end)
       assert newer_version["content"] == "newer version"
-      assert newer_version["created_at"] == 1754500000
+      assert newer_version["created_at"] == 1_754_500_000
 
       # Should also include the unique event
       unique_event = Enum.find(result, fn event -> event["pubkey"] == "pubkey2" end)
@@ -227,7 +271,7 @@ defmodule Nostr.DedupTest do
           "id" => "event1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754500000,
+          "created_at" => 1_754_500_000,
           "content" => "has timestamp"
         },
         %{
@@ -241,7 +285,7 @@ defmodule Nostr.DedupTest do
           "id" => "event3",
           "kind" => 0,
           "pubkey" => "pubkey3",
-          "created_at" => 1754400000,
+          "created_at" => 1_754_400_000,
           "content" => "has timestamp too"
         }
       ]
@@ -251,7 +295,9 @@ defmodule Nostr.DedupTest do
       assert length(result) == 3
 
       # Events with timestamps should be prioritized over those without
-      has_timestamp_events = Enum.filter(result, fn event -> Map.has_key?(event, "created_at") end)
+      has_timestamp_events =
+        Enum.filter(result, fn event -> Map.has_key?(event, "created_at") end)
+
       assert length(has_timestamp_events) == 2
     end
 
@@ -263,21 +309,22 @@ defmodule Nostr.DedupTest do
           "id" => "meta1",
           "kind" => 0,
           "pubkey" => "pubkey1",
-          "created_at" => 1754000000,
+          "created_at" => 1_754_000_000,
           "content" => "old metadata"
         },
         %{
           "id" => "meta2",
           "kind" => 0,
-          "pubkey" => "pubkey1",  # Same pubkey, newer timestamp
-          "created_at" => 1754500000,
+          # Same pubkey, newer timestamp
+          "pubkey" => "pubkey1",
+          "created_at" => 1_754_500_000,
           "content" => "new metadata"
         },
         %{
           "id" => "meta3",
           "kind" => 0,
           "pubkey" => "pubkey2",
-          "created_at" => 1754200000,
+          "created_at" => 1_754_200_000,
           "content" => "other metadata"
         },
 
@@ -286,21 +333,22 @@ defmodule Nostr.DedupTest do
           "id" => "note1",
           "kind" => 1,
           "pubkey" => "pubkey3",
-          "created_at" => 1754100000,
+          "created_at" => 1_754_100_000,
           "content" => "old note"
         },
         %{
-          "id" => "note1",  # Same id, newer timestamp
+          # Same id, newer timestamp
+          "id" => "note1",
           "kind" => 1,
           "pubkey" => "pubkey3",
-          "created_at" => 1754400000,
+          "created_at" => 1_754_400_000,
           "content" => "new note"
         },
         %{
           "id" => "note2",
           "kind" => 1,
           "pubkey" => "pubkey4",
-          "created_at" => 1754300000,
+          "created_at" => 1_754_300_000,
           "content" => "unique note"
         }
       ]
@@ -315,12 +363,13 @@ defmodule Nostr.DedupTest do
 
       # Verify we got the newest versions
       assert Enum.find(result, fn event ->
-        event["kind"] == 0 && event["pubkey"] == "pubkey1" && event["content"] == "new metadata"
-      end)
+               event["kind"] == 0 && event["pubkey"] == "pubkey1" &&
+                 event["content"] == "new metadata"
+             end)
 
       assert Enum.find(result, fn event ->
-        event["kind"] == 1 && event["id"] == "note1" && event["content"] == "new note"
-      end)
+               event["kind"] == 1 && event["id"] == "note1" && event["content"] == "new note"
+             end)
     end
   end
 end

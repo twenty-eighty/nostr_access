@@ -21,13 +21,19 @@ defmodule NostrAccess.Application do
       {Registry, keys: :unique, name: Registry.NostrRelayPools},
 
       # Cache for zero results (TTL: 1 hour)
-      Supervisor.child_spec({Cachex, name: :nostr_cache_zero_results, default_ttl: 3_600_000}, id: :nostr_cache_zero_results),
+      Supervisor.child_spec({Cachex, name: :nostr_cache_zero_results, default_ttl: 3_600_000},
+        id: :nostr_cache_zero_results
+      ),
 
       # Cache for immutable results - queries with specific event IDs (TTL: 1 day)
-      Supervisor.child_spec({Cachex, name: :nostr_cache_immutable, default_ttl: 86_400_000}, id: :nostr_cache_immutable),
+      Supervisor.child_spec({Cachex, name: :nostr_cache_immutable, default_ttl: 86_400_000},
+        id: :nostr_cache_immutable
+      ),
 
       # Cache for mutable results - all other queries (TTL: 30 minutes)
-      Supervisor.child_spec({Cachex, name: :nostr_cache_mutable, default_ttl: 1_800_000}, id: :nostr_cache_mutable),
+      Supervisor.child_spec({Cachex, name: :nostr_cache_mutable, default_ttl: 1_800_000},
+        id: :nostr_cache_mutable
+      ),
 
       # Telemetry supervisor
       Nostr.Telemetry.Supervisor,

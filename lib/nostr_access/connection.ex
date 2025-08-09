@@ -5,14 +5,13 @@ defmodule Nostr.Connection do
 
   use WebSockex
 
-
-
   defmodule State do
     @moduledoc false
     defstruct [
       :uri,
       :caller_pid,
-      subscriptions: %{},  # sub_id => {caller_pid, filter_json}
+      # sub_id => {caller_pid, filter_json}
+      subscriptions: %{},
       free_slots: 10
     ]
   end
@@ -39,8 +38,6 @@ defmodule Nostr.Connection do
     :ok
   end
 
-
-
   @doc """
   Sends a filter to the relay.
   """
@@ -66,8 +63,6 @@ defmodule Nostr.Connection do
     # For now, we'll assume the connection has free slots
     true
   end
-
-
 
   @impl WebSockex
   def handle_frame({:text, message}, state) do
@@ -100,18 +95,19 @@ defmodule Nostr.Connection do
     end
   end
 
-
-
   @impl WebSockex
   def handle_info({:send_filter, caller_pid, sub_id, filter}, state) do
     if state.free_slots > 0 do
       message = Jason.encode!(["REQ", sub_id, filter])
       require Logger
       Logger.info("Sending REQ message: #{message}")
-      {:reply, {:text, message}, %{state |
-        subscriptions: Map.put(state.subscriptions, sub_id, {caller_pid, filter}),
-        free_slots: state.free_slots - 1
-      }}
+
+      {:reply, {:text, message},
+       %{
+         state
+         | subscriptions: Map.put(state.subscriptions, sub_id, {caller_pid, filter}),
+           free_slots: state.free_slots - 1
+       }}
     else
       {:ok, state}
     end
@@ -146,10 +142,12 @@ defmodule Nostr.Connection do
         send(caller_pid, {:eose, self(), sub_id})
 
         # Free up the slot
-        new_state = %{state |
-          subscriptions: Map.delete(state.subscriptions, sub_id),
-          free_slots: state.free_slots + 1
+        new_state = %{
+          state
+          | subscriptions: Map.delete(state.subscriptions, sub_id),
+            free_slots: state.free_slots + 1
         }
+
         {:ok, new_state}
 
       nil ->

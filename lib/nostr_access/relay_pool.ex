@@ -12,9 +12,12 @@ defmodule Nostr.RelayPool do
     @moduledoc false
     defstruct [
       :uri,
-      connections: %{},  # pid() => free_slots :: 0..10
-      waiting: [],       # [{caller_pid, ref}]
-      creating_connection: false  # Flag to prevent duplicate connection creation
+      # pid() => free_slots :: 0..10
+      connections: %{},
+      # [{caller_pid, ref}]
+      waiting: [],
+      # Flag to prevent duplicate connection creation
+      creating_connection: false
     ]
   end
 
@@ -29,7 +32,8 @@ defmodule Nostr.RelayPool do
   @doc """
   Checks out a connection with a free slot.
   """
-  @spec checkout_conn(pid()) :: {:ok, pid()} | {:error, :no_slot} | {:error, {:connection_failed, term()}}
+  @spec checkout_conn(pid()) ::
+          {:ok, pid()} | {:error, :no_slot} | {:error, {:connection_failed, term()}}
   def checkout_conn(pool_pid) do
     GenServer.call(pool_pid, :checkout_conn, :infinity)
   end
@@ -68,12 +72,17 @@ defmodule Nostr.RelayPool do
           # Start a new connection with the query process as caller_pid
           case start_new_connection(state.uri, caller_pid) do
             {:ok, conn_pid} ->
-              new_connections = Map.put(state.connections, conn_pid, 9)  # 10 - 1
-              {:reply, {:ok, conn_pid}, %{state | connections: new_connections, creating_connection: false}}
+              # 10 - 1
+              new_connections = Map.put(state.connections, conn_pid, 9)
+
+              {:reply, {:ok, conn_pid},
+               %{state | connections: new_connections, creating_connection: false}}
 
             {:error, reason} ->
               Logger.error("Failed to start connection to #{state.uri}: #{inspect(reason)}")
-              {:reply, {:error, {:connection_failed, reason}}, %{state | creating_connection: false}}
+
+              {:reply, {:error, {:connection_failed, reason}},
+               %{state | creating_connection: false}}
           end
         end
 
@@ -117,6 +126,7 @@ defmodule Nostr.RelayPool do
     Enum.each(state.waiting, fn {caller_pid, _ref} ->
       send(caller_pid, {:event, conn_pid, sub_id, event})
     end)
+
     {:noreply, state}
   end
 
@@ -126,6 +136,7 @@ defmodule Nostr.RelayPool do
     Enum.each(state.waiting, fn {caller_pid, _ref} ->
       send(caller_pid, {:eose, conn_pid, sub_id})
     end)
+
     {:noreply, state}
   end
 
@@ -139,6 +150,7 @@ defmodule Nostr.RelayPool do
   @spec start_new_connection(String.t(), pid()) :: {:ok, pid()} | {:error, term()}
   defp start_new_connection(uri, caller_pid) do
     Logger.info("Starting new connection to #{uri}")
+
     case Nostr.Connection.start_link(uri, caller_pid) do
       {:ok, conn_pid} ->
         Logger.info("Successfully started connection to #{uri}")

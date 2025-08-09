@@ -4,6 +4,7 @@ defmodule NostrAccessTest do
 
   test "version/0 returns the version" do
     version = NostrAccess.version()
-    assert is_list(version)  # Application version is returned as a charlist
+    # Application version is returned as a charlist
+    assert is_list(version)
   end
 end

@@ -160,7 +160,7 @@ defmodule NostrAccess.CLI do
     ]
   end
 
-    defp build_opts(opts, args) do
+  defp build_opts(opts, args) do
     # Handle multiple values for array options
     authors = get_array_values(opts, :author)
     ids = get_array_values(opts, :id)
@@ -207,12 +207,13 @@ defmodule NostrAccess.CLI do
     tags_map = %{}
 
     # Parse explicit tags
-    tags_map = Enum.reduce(tags, tags_map, fn tag, acc ->
-      case String.split(tag, "=", parts: 2) do
-        [key, value] -> Map.put(acc, "#{key}", [value])
-        _ -> acc
-      end
-    end)
+    tags_map =
+      Enum.reduce(tags, tags_map, fn tag, acc ->
+        case String.split(tag, "=", parts: 2) do
+          [key, value] -> Map.put(acc, "#{key}", [value])
+          _ -> acc
+        end
+      end)
 
     # Handle shortcut tags
     tags_map = if d_tags != [], do: Map.put(tags_map, "#d", d_tags), else: tags_map
@@ -223,9 +224,11 @@ defmodule NostrAccess.CLI do
   end
 
   defp parse_interval(nil), do: 0
+
   defp parse_interval(interval_str) do
     case parse_duration(interval_str) do
-      {:ok, seconds} -> seconds * 1000  # Convert to milliseconds
+      # Convert to milliseconds
+      {:ok, seconds} -> seconds * 1000
       _ -> 0
     end
   end
@@ -234,13 +237,17 @@ defmodule NostrAccess.CLI do
     case Regex.run(~r/^(\d+)([smhd])$/, duration_str) do
       [_, amount, unit] ->
         amount = String.to_integer(amount)
-        seconds = case unit do
-          "s" -> amount
-          "m" -> amount * 60
-          "h" -> amount * 3600
-          "d" -> amount * 86400
-        end
+
+        seconds =
+          case unit do
+            "s" -> amount
+            "m" -> amount * 60
+            "h" -> amount * 3600
+            "d" -> amount * 86400
+          end
+
         {:ok, seconds}
+
       _ ->
         :error
     end
@@ -304,12 +311,14 @@ defmodule NostrAccess.CLI do
         unless opts.quiet do
           IO.puts(:stderr, "Received #{length(events)} events")
         end
+
         print_events(events, opts)
 
       {:error, reason} ->
         unless opts.quiet do
           IO.puts(:stderr, "Error: #{inspect(reason)}")
         end
+
         System.halt(1)
     end
   end
@@ -325,6 +334,7 @@ defmodule NostrAccess.CLI do
         unless opts.quiet do
           IO.puts(:stderr, "Error: #{inspect(reason)}")
         end
+
         System.halt(1)
     end
   end
@@ -373,6 +383,7 @@ defmodule NostrAccess.CLI do
           unless opts.quiet do
             IO.puts(:stderr, "Error: #{inspect(reason)}")
           end
+
           System.halt(1)
       end
     end

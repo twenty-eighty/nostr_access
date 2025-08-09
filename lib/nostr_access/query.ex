@@ -16,9 +16,12 @@ defmodule Nostr.Query do
       :opts,
       :cache_key,
       events: [],
-      relay_states: %{},  # relay_uri => :pending | :eose | :error
-      connections: %{},   # conn_pid => sub_id
-      connection_relays: %{},  # conn_pid => relay_uri
+      # relay_uri => :pending | :eose | :error
+      relay_states: %{},
+      # conn_pid => sub_id
+      connections: %{},
+      # conn_pid => relay_uri
+      connection_relays: %{},
       idle_timer: nil,
       overall_timer: nil
     ]
@@ -49,7 +52,8 @@ defmodule Nostr.Query do
     cache_key = Nostr.Cache.make_key(unique_relays, canonical_filter)
 
     # Set up timers
-    idle_ms = Keyword.get(opts, :idle_ms, 5000)  # Increased from 500ms to 5s
+    # Increased from 500ms to 5s
+    idle_ms = Keyword.get(opts, :idle_ms, 5000)
     overall_timeout = Keyword.get(opts, :overall_timeout, 30_000)
 
     idle_timer = Process.send_after(self(), :idle_timeout, idle_ms)
@@ -94,18 +98,17 @@ defmodule Nostr.Query do
 
     # Reset idle timer
     cancel_timer(state.idle_timer)
-    idle_timer = Process.send_after(self(), :idle_timeout, Keyword.get(state.opts, :idle_ms, 5000))
+
+    idle_timer =
+      Process.send_after(self(), :idle_timeout, Keyword.get(state.opts, :idle_ms, 5000))
 
     # Add event to collection
-    new_state = %{state |
-      events: [event | state.events],
-      idle_timer: idle_timer
-    }
+    new_state = %{state | events: [event | state.events], idle_timer: idle_timer}
 
     {:noreply, new_state}
   end
 
-    @impl GenServer
+  @impl GenServer
   def handle_info({:eose, conn_pid, _sub_id}, state) do
     # Find which relay this connection belongs to
     case find_relay_for_connection(conn_pid, state) do
@@ -120,7 +123,9 @@ defmodule Nostr.Query do
               [{pool_pid, _}] -> Nostr.RelayPool.checkin_conn(pool_pid, conn_pid)
               _ -> :ok
             end
-          _ -> :ok
+
+          _ ->
+            :ok
         end
 
         # Check if all relays have sent EOSE
@@ -205,38 +210,44 @@ defmodule Nostr.Query do
 
     # Start relay pools and send queries simultaneously
     query_pid = self()
-    results = Task.async_stream(
-      state.relays,
-      fn relay -> start_single_relay_query(relay, state.canonical_filter, query_pid) end,
-      timeout: 10_000
-    )
+
+    results =
+      Task.async_stream(
+        state.relays,
+        fn relay -> start_single_relay_query(relay, state.canonical_filter, query_pid) end,
+        timeout: 10_000
+      )
 
     # Process results and update state
-    new_state = Enum.reduce(results, state, fn
-      {:ok, {:ok, conn_pid, sub_id, relay}}, acc_state ->
-        new_connections = Map.put(acc_state.connections || %{}, conn_pid, sub_id)
-        new_connection_relays = Map.put(acc_state.connection_relays || %{}, conn_pid, relay)
-        %{acc_state | connections: new_connections, connection_relays: new_connection_relays}
+    new_state =
+      Enum.reduce(results, state, fn
+        {:ok, {:ok, conn_pid, sub_id, relay}}, acc_state ->
+          new_connections = Map.put(acc_state.connections || %{}, conn_pid, sub_id)
+          new_connection_relays = Map.put(acc_state.connection_relays || %{}, conn_pid, relay)
+          %{acc_state | connections: new_connections, connection_relays: new_connection_relays}
 
-      {:ok, {:error, relay, {:connection_failed, %WebSockex.RequestError{code: 302, message: "Found"}}}}, acc_state ->
-        Logger.error("Relay #{relay} is not a valid WebSocket endpoint (HTTP 302 redirect)")
-        new_relay_states = Map.put(acc_state.relay_states, relay, :error)
-        %{acc_state | relay_states: new_relay_states}
+        {:ok,
+         {:error, relay,
+          {:connection_failed, %WebSockex.RequestError{code: 302, message: "Found"}}}},
+        acc_state ->
+          Logger.error("Relay #{relay} is not a valid WebSocket endpoint (HTTP 302 redirect)")
+          new_relay_states = Map.put(acc_state.relay_states, relay, :error)
+          %{acc_state | relay_states: new_relay_states}
 
-      {:ok, {:error, relay, {:connection_failed, reason}}}, acc_state ->
-        Logger.error("Connection failed for relay #{relay}: #{inspect(reason)}")
-        new_relay_states = Map.put(acc_state.relay_states, relay, :error)
-        %{acc_state | relay_states: new_relay_states}
+        {:ok, {:error, relay, {:connection_failed, reason}}}, acc_state ->
+          Logger.error("Connection failed for relay #{relay}: #{inspect(reason)}")
+          new_relay_states = Map.put(acc_state.relay_states, relay, :error)
+          %{acc_state | relay_states: new_relay_states}
 
-      {:ok, {:error, relay, reason}}, acc_state ->
-        Logger.error("Failed to start relay query for #{relay}: #{inspect(reason)}")
-        new_relay_states = Map.put(acc_state.relay_states, relay, :error)
-        %{acc_state | relay_states: new_relay_states}
+        {:ok, {:error, relay, reason}}, acc_state ->
+          Logger.error("Failed to start relay query for #{relay}: #{inspect(reason)}")
+          new_relay_states = Map.put(acc_state.relay_states, relay, :error)
+          %{acc_state | relay_states: new_relay_states}
 
-      {:exit, reason}, acc_state ->
-        Logger.error("Task failed with reason: #{inspect(reason)}")
-        acc_state
-    end)
+        {:exit, reason}, acc_state ->
+          Logger.error("Task failed with reason: #{inspect(reason)}")
+          acc_state
+      end)
 
     Logger.info("Finished starting relay queries")
     new_state
@@ -248,7 +259,11 @@ defmodule Nostr.Query do
         case Nostr.RelayPool.checkout_conn(pool_pid) do
           {:ok, conn_pid} ->
             sub_id = generate_sub_id()
-            Logger.info("Sending filter to connection #{inspect(conn_pid)} with sub_id: #{sub_id}")
+
+            Logger.info(
+              "Sending filter to connection #{inspect(conn_pid)} with sub_id: #{sub_id}"
+            )
+
             # Send filter directly to connection, bypassing relay pool for message handling
             send(conn_pid, {:send_filter, query_pid, sub_id, canonical_filter})
             {:ok, conn_pid, sub_id, relay}
@@ -282,12 +297,14 @@ defmodule Nostr.Query do
     deduped_events = dedup_strategy.dedup(state.events, filter_without_limit)
 
     # Apply limit after deduplication
-    final_events = case Map.get(state.canonical_filter, :limit) do
-      limit when is_integer(limit) and limit > 0 ->
-        Enum.take(deduped_events, limit)
-      _ ->
-        deduped_events
-    end
+    final_events =
+      case Map.get(state.canonical_filter, :limit) do
+        limit when is_integer(limit) and limit > 0 ->
+          Enum.take(deduped_events, limit)
+
+        _ ->
+          deduped_events
+      end
 
     # Cache result
     cache_result(state, final_events)
@@ -336,6 +353,7 @@ defmodule Nostr.Query do
           [{pid, _}] ->
             :ets.delete(:relay_pool_locks, lock_name)
             {:ok, pid}
+
           [] ->
             # Create a unique child spec for this relay
             child_spec = %{
@@ -350,9 +368,11 @@ defmodule Nostr.Query do
               {:ok, pid} ->
                 :ets.delete(:relay_pool_locks, lock_name)
                 {:ok, pid}
+
               {:error, {:already_started, pid}} ->
                 :ets.delete(:relay_pool_locks, lock_name)
                 {:ok, pid}
+
               {:error, reason} ->
                 :ets.delete(:relay_pool_locks, lock_name)
                 {:error, reason}

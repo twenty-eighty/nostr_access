@@ -13,7 +13,7 @@ defmodule Nostr.Cache do
   @doc """
   Gets a value from cache or stores the result of the given function.
   """
-  @spec get_or_store({[String.t()], String.t()}, map(), (() -> [map()])) :: [map()]
+  @spec get_or_store({[String.t()], String.t()}, map(), (-> [map()])) :: [map()]
   def get_or_store(key, filter, fun) do
     # Try all cache tables in order of preference
     case try_get_from_all_caches(key, filter) do
@@ -32,7 +32,8 @@ defmodule Nostr.Cache do
   @doc """
   Tries to get a value from all cache tables in order of preference.
   """
-  @spec try_get_from_all_caches({[String.t()], String.t()}, map()) :: {:ok, [map()]} | {:error, :not_found}
+  @spec try_get_from_all_caches({[String.t()], String.t()}, map()) ::
+          {:ok, [map()]} | {:error, :not_found}
   def try_get_from_all_caches(key, filter) do
     # Try immutable cache first (if query has specific IDs)
     if Map.has_key?(filter, :ids) and is_list(filter.ids) and length(filter.ids) > 0 do
@@ -103,7 +104,8 @@ defmodule Nostr.Cache do
   @doc """
   Stores events in the appropriate cache based on filter and results.
   """
-  @spec put_events({[String.t()], String.t()}, [map()], map()) :: {:ok, boolean()} | {:error, term()}
+  @spec put_events({[String.t()], String.t()}, [map()], map()) ::
+          {:ok, boolean()} | {:error, term()}
   def put_events(key, events, filter) do
     table = determine_cache_table(filter, events)
     Cachex.put(table, key, events)
@@ -112,7 +114,8 @@ defmodule Nostr.Cache do
   @doc """
   Stores zero results in the zero results cache.
   """
-  @spec put_zero_results({[String.t()], String.t()}, [map()]) :: {:ok, boolean()} | {:error, term()}
+  @spec put_zero_results({[String.t()], String.t()}, [map()]) ::
+          {:ok, boolean()} | {:error, term()}
   def put_zero_results(key, results) do
     Cachex.put(@zero_results_table, key, results)
   end
