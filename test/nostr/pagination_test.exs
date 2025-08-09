@@ -296,10 +296,6 @@ defmodule Nostr.PaginationTest do
           filters_used: filters_used
         }
       else
-        # Update filter for next iteration
-        last_event = List.last(current_batch)
-        until_timestamp = get_event_timestamp(last_event)
-
         # Simulate interval delay
         interval = Map.get(state, :interval, 0)
 
