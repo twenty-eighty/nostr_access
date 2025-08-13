@@ -218,6 +218,45 @@ defmodule Nostr.QueryTest do
       :ok
     end
 
+    test "does not return cache contents for first unique query (empty caches)" do
+      Cachex.clear(:nostr_cache_zero_results)
+      Cachex.clear(:nostr_cache_immutable)
+      Cachex.clear(:nostr_cache_mutable)
+
+      relays = []
+      filter = %{kinds: [0], limit: 1}
+      opts = [idle_ms: 200, overall_timeout: 1_000]
+
+      {:ok, pid} = Nostr.Query.start_link({relays, filter, self(), opts})
+
+      # If cache falsely hits, we'd receive an immediate {:ok, _} message
+      refute_receive({:ok, _}, 20)
+
+      # Cleanup the query process
+      Nostr.Query.cancel(pid)
+    end
+
+    test "does not immediately return cached empty results when zero-results entry exists" do
+      Cachex.clear(:nostr_cache_zero_results)
+      Cachex.clear(:nostr_cache_immutable)
+      Cachex.clear(:nostr_cache_mutable)
+
+      relays = []
+      filter = %{kinds: [0], limit: 1}
+      cache_key = Nostr.Cache.make_key(relays, filter)
+
+      # Seed zero-results cache for this key
+      assert {:ok, true} = Nostr.Cache.put_zero_results(cache_key, [])
+
+      opts = [idle_ms: 200, overall_timeout: 1_000]
+      {:ok, pid} = Nostr.Query.start_link({relays, filter, self(), opts})
+
+      # We should not short-circuit to an immediate {:ok, []} from cache
+      refute_receive({:ok, _}, 20)
+
+      Nostr.Query.cancel(pid)
+    end
+
     test "cache key generation is consistent for same query" do
       relays = ["wss://relay2.com", "wss://relay1.com"]
       filter = %{kinds: [0], limit: 3}

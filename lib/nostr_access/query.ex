@@ -197,8 +197,11 @@ defmodule Nostr.Query do
         _ ->
           # Try zero results cache as fallback
           case Nostr.Cache.get_zero_results(state.cache_key) do
+            # Explicit zero-results entry present
             {:ok, []} -> {:miss, []}
-            {:ok, _} -> {:ok, []}
+            # No zero-results entry (nil) should not be treated as a hit
+            {:ok, nil} -> {:error, :not_found}
+            # Any other unexpected return is a cache error
             _ -> {:error, :cache_error}
           end
       end

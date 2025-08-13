@@ -142,17 +142,20 @@ defmodule Nostr.Client do
         cond do
           # Early stop: fewer than threshold means likely last page
           length(events) < early_stop_threshold ->
-            {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+            {:ok,
+             finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
 
           # Global cap reached
           global_limit != :infinity and length(new_acc) >= global_limit ->
-            {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+            {:ok,
+             finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
 
           true ->
             # Advance window using minimum created_at from this page
             min_ts =
               Enum.reduce(events, nil, fn ev, acc ->
                 ts = get_event_timestamp(ev)
+
                 cond do
                   is_nil(acc) -> ts
                   ts < acc -> ts
@@ -168,16 +171,30 @@ defmodule Nostr.Client do
 
             cond do
               is_integer(since_boundary) and next_until <= since_boundary ->
-                {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+                {:ok,
+                 finalize_paginated(
+                   new_acc,
+                   Map.get(canonical_filter, :limit),
+                   global_limit,
+                   opts
+                 )}
 
               prev_until == next_until ->
-                {:ok, finalize_paginated(new_acc, Map.get(canonical_filter, :limit), global_limit, opts)}
+                {:ok,
+                 finalize_paginated(
+                   new_acc,
+                   Map.get(canonical_filter, :limit),
+                   global_limit,
+                   opts
+                 )}
 
               true ->
                 next_filter = Map.put(canonical_filter, :until, next_until)
+
                 if interval_ms > 0 do
                   :timer.sleep(interval_ms)
                 end
+
                 do_fetch_pages(relays, next_filter, opts, global_limit, interval_ms, new_acc)
             end
         end
