@@ -48,6 +48,7 @@ defmodule NostrAccess do
 
   defdelegate fetch(relays, filter, opts \\ []), to: Client
   defdelegate stream(relays, filter, opts \\ []), to: Client
+  defdelegate publish(relays, event, opts \\ []), to: Client
   defdelegate cancel(query_ref), to: Client
 
   @doc """

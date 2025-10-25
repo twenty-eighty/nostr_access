@@ -7,6 +7,7 @@ defmodule Nostr.Client do
   @type filter :: map()
   @type event :: map()
   @type query_ref :: reference()
+  @type publish_result :: %{event_id: String.t() | nil, ok: non_neg_integer(), total: non_neg_integer(), statuses: map()}
 
   @doc """
   Fetches events from the specified relays using the given filter.
@@ -70,6 +71,27 @@ defmodule Nostr.Client do
     with {:ok, canonical_filter} <- validate_filter(filter),
          {:ok, query_pid} <- start_query(relays, canonical_filter, {self(), make_ref()}, opts) do
       {:ok, query_pid}
+    end
+  end
+
+  @doc """
+  Publishes an event to the specified relays and waits for OK acks.
+
+  Options:
+  - `:min_ok` - minimum number of relays that must acknowledge OK (default: 1)
+  - `:overall_timeout` - hard stop timeout in milliseconds (default: 30_000)
+  """
+  @spec publish([relay_uri], map(), Keyword.t()) :: {:ok, publish_result} | {:error, {:min_ok_not_met, publish_result}} | {:error, term()}
+  def publish(relays, event, opts \\ []) do
+    with {:ok, _publisher_pid} <- start_publisher(relays, event, self(), opts) do
+      receive do
+        {:ok, result} -> {:ok, result}
+        {:error, {:min_ok_not_met, result}} -> {:error, {:min_ok_not_met, result}}
+        {:error, reason} -> {:error, reason}
+      after
+        Keyword.get(opts, :overall_timeout, 30_000) ->
+          {:error, :timeout}
+      end
     end
   end
 
@@ -245,6 +267,29 @@ defmodule Nostr.Client do
 
       {:error, reason} ->
         Logger.error("Failed to start query: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp start_publisher(relays, event, caller, opts) do
+    require Logger
+    Logger.info("Starting publisher for relays: #{inspect(relays)}")
+
+    child_spec = %{
+      id: Nostr.Publisher,
+      start: {Nostr.Publisher, :start_link, [{relays, event, caller, opts}]},
+      restart: :temporary,
+      shutdown: 5000,
+      type: :worker
+    }
+
+    case DynamicSupervisor.start_child(DynamicSupervisor.PublisherSup, child_spec) do
+      {:ok, pid} ->
+        Logger.info("Publisher started successfully: #{inspect(pid)}")
+        {:ok, pid}
+
+      {:error, reason} ->
+        Logger.error("Failed to start publisher: #{inspect(reason)}")
         {:error, reason}
     end
   end

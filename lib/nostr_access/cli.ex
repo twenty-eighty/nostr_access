@@ -141,7 +141,12 @@ defmodule NostrAccess.CLI do
       help: :boolean,
       quiet: :boolean,
       verbose: :boolean,
-      version: :boolean
+      version: :boolean,
+
+      # Publish options
+      publish: :boolean,
+      event: :string,
+      min_ok: :integer
     ]
   end
 
@@ -199,7 +204,10 @@ defmodule NostrAccess.CLI do
       quiet: opts[:quiet] || false,
       verbose: opts[:verbose] || false,
       help: opts[:help] || false,
-      version: opts[:version] || false
+      version: opts[:version] || false,
+      publish: opts[:publish] || false,
+      event: opts[:event],
+      min_ok: opts[:min_ok]
     }
   end
 
@@ -267,20 +275,89 @@ defmodule NostrAccess.CLI do
       IO.puts(:stderr, "Relays: #{inspect(opts.relays)}")
     end
 
-    case opts.relays do
-      [] ->
-        # Just print the filter
-        if opts.bare do
-          IO.puts(Jason.encode!(opts.filter))
+    if opts.publish do
+      execute_publish(opts)
+    else
+      case opts.relays do
+        [] ->
+          # Just print the filter
+          if opts.bare do
+            IO.puts(Jason.encode!(opts.filter))
+          else
+            sub_id = generate_sub_id()
+            req = ["REQ", sub_id, opts.filter]
+            IO.puts(Jason.encode!(req))
+          end
+
+        relays ->
+          # Connect to relays and send filter
+          execute_query(opts, relays)
+      end
+    end
+  end
+
+  defp execute_publish(opts) do
+    with {:ok, event} <- fetch_event_json(opts),
+         relays when is_list(relays) <- opts.relays do
+      min_ok = opts.min_ok || 1
+
+      unless opts.quiet do
+        IO.puts(:stderr, "Publishing to relays: #{inspect(relays)} (min_ok=#{min_ok})")
+      end
+
+      case Nostr.Client.publish(relays, event, min_ok: min_ok) do
+        {:ok, result} ->
+          unless opts.quiet do
+            IO.puts(:stderr, "OK from #{result.ok}/#{result.total} relays")
+          end
+
+          IO.puts(Jason.encode!(result))
+
+        {:error, {:min_ok_not_met, result}} ->
+          unless opts.quiet do
+            IO.puts(:stderr, "Minimum OK not met: #{result.ok}/#{result.total}")
+          end
+
+          IO.puts(Jason.encode!(result))
+          System.halt(2)
+
+        {:error, reason} ->
+          unless opts.quiet do
+            IO.puts(:stderr, "Error: #{inspect(reason)}")
+          end
+
+          System.halt(1)
+      end
+    else
+      {:error, msg} ->
+        IO.puts(:stderr, "Error: #{msg}")
+        System.halt(1)
+    end
+  end
+
+  defp fetch_event_json(%{event: event_json}) when is_binary(event_json) do
+    case Jason.decode(event_json) do
+      {:ok, ev} when is_map(ev) -> {:ok, ev}
+      _ -> {:error, "--event must be valid JSON"}
+    end
+  end
+
+  defp fetch_event_json(_opts) do
+    input = IO.binread(:stdio, :all)
+    case input do
+      data when is_binary(data) ->
+        trimmed = String.trim(data)
+        if trimmed != "" do
+          case Jason.decode(trimmed) do
+            {:ok, ev} when is_map(ev) -> {:ok, ev}
+            _ -> {:error, "stdin does not contain a valid JSON event"}
+          end
         else
-          sub_id = generate_sub_id()
-          req = ["REQ", sub_id, opts.filter]
-          IO.puts(Jason.encode!(req))
+          {:error, "No event provided. Use --event '{...}' or pipe JSON on stdin."}
         end
 
-      relays ->
-        # Connect to relays and send filter
-        execute_query(opts, relays)
+      _ ->
+        {:error, "No event provided. Use --event '{...}' or pipe JSON on stdin."}
     end
   end
 

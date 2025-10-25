@@ -50,6 +50,10 @@ mix escript.build
 
 # Paginate through events
 ./nostr_access --paginate --paginate-global-limit 100 -k 1 wss://relay.example.com
+
+# Publish a signed Nostr event to relays, require OK from at least 2
+echo '{"id":"<id>","pubkey":"<hex>","created_at":1700000000,"kind":1,"tags":[],"content":"hi","sig":"<hex>"}' \
+  | ./nostr_access --publish --min-ok 2 wss://relay1.com wss://relay2.com wss://relay3.com
 ```
 
 ### Programmatic API
@@ -77,6 +81,25 @@ mix escript.build
   overall_timeout: 60_000,
   cache?: false
 )
+```
+
+#### Publishing Events
+
+```elixir
+event = %{
+  "id" => "<id>",
+  "pubkey" => "<hex>",
+  "created_at" => 1_700_000_000,
+  "kind" => 1,
+  "tags" => [],
+  "content" => "hello",
+  "sig" => "<hex>"
+}
+
+case Nostr.Client.publish(["wss://relay1.com", "wss://relay2.com"], event, min_ok: 2) do
+  {:ok, result} -> IO.inspect(result, label: "publish result")
+  {:error, {:min_ok_not_met, result}} -> IO.inspect(result, label: "not enough OKs")
+end
 ```
 
 #### Streaming Events (Asynchronous)

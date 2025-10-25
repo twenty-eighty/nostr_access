@@ -42,7 +42,10 @@ defmodule NostrAccess.Application do
       {DynamicSupervisor, name: DynamicSupervisor.QuerySup, strategy: :one_for_one},
 
       # Dynamic supervisor for relay pools
-      {DynamicSupervisor, name: DynamicSupervisor.RelayPoolSup, strategy: :one_for_one}
+      {DynamicSupervisor, name: DynamicSupervisor.RelayPoolSup, strategy: :one_for_one},
+
+      # Dynamic supervisor for publishers
+      {DynamicSupervisor, name: DynamicSupervisor.PublisherSup, strategy: :one_for_one}
     ]
 
     opts = [strategy: :rest_for_one, name: NostrAccess.Supervisor]

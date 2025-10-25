@@ -12,6 +12,8 @@ defmodule Nostr.Connection do
       :caller_pid,
       # sub_id => {caller_pid, filter_json}
       subscriptions: %{},
+      # event_id => caller_pid (for publish acks)
+      publishes: %{},
       free_slots: 10
     ]
   end
@@ -44,6 +46,15 @@ defmodule Nostr.Connection do
   @spec send_filter(pid(), pid(), String.t(), map()) :: :ok | {:error, :no_slots}
   def send_filter(conn_pid, caller_pid, sub_id, filter) do
     send(conn_pid, {:send_filter, caller_pid, sub_id, filter})
+  end
+
+  @doc """
+  Publishes a Nostr event to the relay.
+  The caller will receive `{:pub_ack, conn_pid, event_id, success?, message}`.
+  """
+  @spec publish_event(pid(), pid(), map()) :: :ok
+  def publish_event(conn_pid, caller_pid, event) do
+    send(conn_pid, {:publish_event, caller_pid, event})
   end
 
   @doc """
@@ -89,6 +100,10 @@ defmodule Nostr.Connection do
         Logger.debug("Received EOSE for sub_id: #{sub_id}")
         handle_eose(sub_id, state)
 
+      {:ok, ["OK", event_id, success, msg]} ->
+        # Relay acknowledgment for a published event
+        handle_ok_ack(event_id, success, msg, state)
+
       {:ok, ["NOTICE", message]} ->
         # Log notice messages
         Logger.info("Relay notice from #{state.uri}: #{message}")
@@ -121,6 +136,23 @@ defmodule Nostr.Connection do
        }}
     else
       {:ok, state}
+    end
+  end
+
+  @impl WebSockex
+  def handle_info({:publish_event, caller_pid, event}, state) do
+    case event do
+      %{"id" => event_id} when is_binary(event_id) ->
+        message = Jason.encode!(["EVENT", event])
+        require Logger
+        Logger.info("Publishing EVENT to #{state.uri}: #{event_id}")
+
+        {:reply, {:text, message}, %{state | publishes: Map.put(state.publishes, event_id, caller_pid)}}
+
+      _ ->
+        # Event must include an id per NIP-01
+        send(caller_pid, {:pub_ack, self(), nil, false, "invalid event: missing id"})
+        {:ok, state}
     end
   end
 
@@ -163,6 +195,18 @@ defmodule Nostr.Connection do
 
       nil ->
         # Unknown subscription, ignore
+        {:ok, state}
+    end
+  end
+
+  defp handle_ok_ack(event_id, success, msg, state) do
+    case Map.get(state.publishes, event_id) do
+      caller when is_pid(caller) ->
+        send(caller, {:pub_ack, self(), event_id, success in [true, "true"], msg})
+        # We keep the mapping to allow multiple OKs, but most relays send one
+        {:ok, state}
+
+      _ ->
         {:ok, state}
     end
   end
