@@ -343,7 +343,7 @@ defmodule NostrAccess.CLI do
   end
 
   defp fetch_event_json(_opts) do
-    input = IO.binread(:stdio, :all)
+    input = read_all_stdin()
     case input do
       data when is_binary(data) ->
         trimmed = String.trim(data)
@@ -358,6 +358,18 @@ defmodule NostrAccess.CLI do
 
       _ ->
         {:error, "No event provided. Use --event '{...}' or pipe JSON on stdin."}
+    end
+  end
+
+  defp read_all_stdin do
+    read_all_stdin("")
+  end
+
+  defp read_all_stdin(acc) do
+    case IO.binread(:stdio, :line) do
+      :eof -> acc
+      {:error, _reason} -> acc
+      data when is_binary(data) -> read_all_stdin(acc <> data)
     end
   end
 
