@@ -44,10 +44,11 @@ defmodule Nostr.Publisher do
     overall_timeout = Keyword.get(opts, :overall_timeout, 30_000)
     overall_timer = Process.send_after(self(), :overall_timeout, overall_timeout)
 
-    event_id = case event do
-      %{"id" => id} when is_binary(id) -> id
-      _ -> nil
-    end
+    event_id =
+      case event do
+        %{"id" => id} when is_binary(id) -> id
+        _ -> nil
+      end
 
     state = %State{
       event: event,
@@ -97,6 +98,7 @@ defmodule Nostr.Publisher do
     case Map.get(state.connection_relays, conn_pid) do
       relay when is_binary(relay) ->
         Logger.warning("Connection down to #{relay}: #{inspect(reason)}")
+
         new_statuses =
           case Map.get(state.relay_statuses, relay) do
             :pending -> Map.put(state.relay_statuses, relay, {:error, inspect(reason)})
@@ -134,6 +136,7 @@ defmodule Nostr.Publisher do
 
       {:ok, {:error, relay, reason}}, acc_state ->
         Logger.error("Failed to publish on #{relay}: #{inspect(reason)}")
+
         %{
           acc_state
           | relay_statuses: Map.put(acc_state.relay_statuses, relay, {:error, inspect(reason)})
@@ -198,7 +201,9 @@ defmodule Nostr.Publisher do
 
   defp start_relay_pool(relay) do
     case Registry.lookup(Registry.NostrRelayPools, {Nostr.RelayPool, relay}) do
-      [{pid, _}] -> {:ok, pid}
+      [{pid, _}] ->
+        {:ok, pid}
+
       [] ->
         child_spec = %{
           id: {Nostr.RelayPool, relay},

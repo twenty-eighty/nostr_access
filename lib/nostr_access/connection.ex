@@ -147,7 +147,8 @@ defmodule Nostr.Connection do
         require Logger
         Logger.info("Publishing EVENT to #{state.uri}: #{event_id}")
 
-        {:reply, {:text, message}, %{state | publishes: Map.put(state.publishes, event_id, caller_pid)}}
+        {:reply, {:text, message},
+         %{state | publishes: Map.put(state.publishes, event_id, caller_pid)}}
 
       _ ->
         # Event must include an id per NIP-01

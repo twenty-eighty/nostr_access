@@ -344,9 +344,11 @@ defmodule NostrAccess.CLI do
 
   defp fetch_event_json(_opts) do
     input = read_all_stdin()
+
     case input do
       data when is_binary(data) ->
         trimmed = String.trim(data)
+
         if trimmed != "" do
           case Jason.decode(trimmed) do
             {:ok, ev} when is_map(ev) -> {:ok, ev}

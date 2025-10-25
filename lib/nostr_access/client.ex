@@ -7,7 +7,12 @@ defmodule Nostr.Client do
   @type filter :: map()
   @type event :: map()
   @type query_ref :: reference()
-  @type publish_result :: %{event_id: String.t() | nil, ok: non_neg_integer(), total: non_neg_integer(), statuses: map()}
+  @type publish_result :: %{
+          event_id: String.t() | nil,
+          ok: non_neg_integer(),
+          total: non_neg_integer(),
+          statuses: map()
+        }
 
   @doc """
   Fetches events from the specified relays using the given filter.
@@ -81,7 +86,8 @@ defmodule Nostr.Client do
   - `:min_ok` - minimum number of relays that must acknowledge OK (default: 1)
   - `:overall_timeout` - hard stop timeout in milliseconds (default: 30_000)
   """
-  @spec publish([relay_uri], map(), Keyword.t()) :: {:ok, publish_result} | {:error, {:min_ok_not_met, publish_result}} | {:error, term()}
+  @spec publish([relay_uri], map(), Keyword.t()) ::
+          {:ok, publish_result} | {:error, {:min_ok_not_met, publish_result}} | {:error, term()}
   def publish(relays, event, opts \\ []) do
     with {:ok, _publisher_pid} <- start_publisher(relays, event, self(), opts) do
       receive do
