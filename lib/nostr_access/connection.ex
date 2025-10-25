@@ -91,32 +91,38 @@ defmodule Nostr.Connection do
     require Logger
     Logger.debug("Received message from #{state.uri}: #{message}")
 
-    case Jason.decode(message) do
-      {:ok, ["EVENT", sub_id, event]} ->
-        Logger.debug("Received EVENT for sub_id: #{sub_id}")
-        handle_event(sub_id, event, state)
+    try do
+      case Jason.decode(message) do
+        {:ok, ["EVENT", sub_id, event]} ->
+          Logger.debug("Received EVENT for sub_id: #{sub_id}")
+          handle_event(sub_id, event, state)
 
-      {:ok, ["EOSE", sub_id]} ->
-        Logger.debug("Received EOSE for sub_id: #{sub_id}")
-        handle_eose(sub_id, state)
+        {:ok, ["EOSE", sub_id]} ->
+          Logger.debug("Received EOSE for sub_id: #{sub_id}")
+          handle_eose(sub_id, state)
 
-      {:ok, ["OK", event_id, success, msg]} ->
-        # Relay acknowledgment for a published event
-        handle_ok_ack(event_id, success, msg, state)
+        {:ok, ["OK", event_id, success, msg]} ->
+          # Relay acknowledgment for a published event
+          handle_ok_ack(event_id, success, msg, state)
 
-      {:ok, ["NOTICE", message]} ->
-        # Log notice messages
-        Logger.info("Relay notice from #{state.uri}: #{message}")
-        {:ok, state}
+        {:ok, ["NOTICE", message]} ->
+          # Log notice messages
+          Logger.info("Relay notice from #{state.uri}: #{message}")
+          {:ok, state}
 
-      {:ok, other} ->
-        # Log other message types
-        Logger.debug("Received other message: #{inspect(other)}")
-        {:ok, state}
+        {:ok, other} ->
+          # Log other message types
+          Logger.debug("Received other message: #{inspect(other)}")
+          {:ok, state}
 
-      {:error, error} ->
-        # Log malformed JSON
-        Logger.warning("Malformed JSON from #{state.uri}: #{inspect(error)}")
+        {:error, error} ->
+          # Log malformed JSON
+          Logger.warning("Malformed JSON from #{state.uri}: #{inspect(error)}")
+          {:ok, state}
+      end
+    rescue
+      exception ->
+        Logger.error("Error processing frame from #{state.uri}: #{Exception.message(exception)}")
         {:ok, state}
     end
   end
@@ -158,12 +164,12 @@ defmodule Nostr.Connection do
   end
 
   @impl WebSockex
-  def handle_disconnect(%{reason: reason}, state) do
+  def handle_disconnect(disconnect_info, state) do
     require Logger
-    Logger.warning("WebSocket disconnected from #{state.uri}: #{inspect(reason)}")
+    Logger.warning("WebSocket disconnected from #{state.uri}: #{inspect(disconnect_info)}")
 
     # Notify caller about disconnection
-    send(state.caller_pid, {:connection_down, self(), reason})
+    send(state.caller_pid, {:connection_down, self(), disconnect_info})
 
     {:reconnect, state}
   end
