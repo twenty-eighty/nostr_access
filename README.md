@@ -139,6 +139,31 @@ config :nostr_access,
   dedup_strategy: Nostr.Dedup.Default  # Deduplication strategy
 ```
 
+### Relay Health Checks
+
+Relay health is tracked automatically to improve relay selection. Each connection
+records successes and failures, and relays are scored in a short time window.
+Unhealthy relays are put into a temporary cooldown and are skipped for new
+queries and reconnects.
+
+This is on by default and requires no API changes. You can tune or disable it
+via the `:relay_health` configuration:
+
+```elixir
+config :nostr_access, :relay_health,
+  enabled: true,            # Turn relay health checks on/off
+  ttl_hours: 24,            # How long to keep relay state in cache
+  fail_window_minutes: 5,   # Failure window for scoring
+  cooldown_minutes: 10,     # Cooldown length after unhealthy relays
+  fail_threshold: 3,        # Failures in window to trigger cooldown
+  score_floor: 40,          # Minimum score to be considered usable
+  success_inc: 5,           # Score increase per success
+  failure_dec: 15,          # Score decrease per failure
+  max_score: 100,           # Maximum score
+  min_relays: 1,            # Minimum relays to try
+  max_relays: 6             # Maximum relays to query at once
+```
+
 ## CLI Reference
 
 The `nostr_access` command-line tool follows the `nak` tool syntax for compatibility:
