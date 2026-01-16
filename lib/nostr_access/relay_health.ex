@@ -140,8 +140,8 @@ defmodule NostrAccess.RelayHealth do
   def ignore_failure_reason?(%{code: code}) when code in [1000, 1001], do: true
   def ignore_failure_reason?(%{reason: {:remote, :closed}}), do: true
   def ignore_failure_reason?(%{reason: {:remote, :normal}}), do: true
-  def ignore_failure_reason?(%{reason: {:close, 1000, _}}), do: true
-  def ignore_failure_reason?(%{reason: {:close, 1001, _}}), do: true
+  def ignore_failure_reason?(%{reason: {:remote, code, _}}) when code in [1000, 1001], do: true
+  def ignore_failure_reason?(%{reason: {:close, code, _}}) when code in [1000, 1001], do: true
   def ignore_failure_reason?({:remote, code, _reason}) when code in [1000, 1001], do: true
   def ignore_failure_reason?({:close, code, _reason}) when code in [1000, 1001], do: true
   def ignore_failure_reason?(_reason), do: false
