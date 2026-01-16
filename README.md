@@ -18,7 +18,7 @@ Add `nostr_access` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:nostr_access, "~> 0.2.0"}
+    {:nostr_access, "~> 0.3.1"}
   ]
 end
 ```
