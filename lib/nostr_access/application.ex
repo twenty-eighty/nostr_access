@@ -34,6 +34,11 @@ defmodule NostrAccess.Application do
       Supervisor.child_spec({Cachex, name: :nostr_cache_mutable, default_ttl: 1_800_000},
         id: :nostr_cache_mutable
       ),
+      # Cache for relay health tracking (TTL: 24 hours)
+      Supervisor.child_spec(
+        {Cachex, name: :nostr_relay_health_cache, ttl_interval: :timer.minutes(60)},
+        id: :nostr_relay_health_cache
+      ),
 
       # Telemetry supervisor
       Nostr.Telemetry.Supervisor,

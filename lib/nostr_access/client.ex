@@ -42,6 +42,8 @@ defmodule Nostr.Client do
   """
   @spec fetch([relay_uri], filter, Keyword.t()) :: {:ok, [event]} | {:error, term()}
   def fetch(relays, filter, opts \\ []) do
+    relays = maybe_filter_relays(relays)
+
     with {:ok, canonical_filter} <- validate_filter(filter) do
       if Keyword.get(opts, :paginate, false) do
         fetch_paginated_canonical(relays, canonical_filter, opts)
@@ -73,6 +75,8 @@ defmodule Nostr.Client do
   """
   @spec stream([relay_uri], filter, Keyword.t()) :: {:ok, query_ref} | {:error, term()}
   def stream(relays, filter, opts \\ []) do
+    relays = maybe_filter_relays(relays)
+
     with {:ok, canonical_filter} <- validate_filter(filter),
          {:ok, query_pid} <- start_query(relays, canonical_filter, {self(), make_ref()}, opts) do
       {:ok, query_pid}
@@ -132,6 +136,22 @@ defmodule Nostr.Client do
       e in ArgumentError -> {:error, e.message}
     end
   end
+
+  defp maybe_filter_relays(relays) when is_list(relays) do
+    if Code.ensure_loaded?(NostrAccess.RelayHealth) do
+      try do
+        NostrAccess.RelayHealth.available_relays(relays)
+      rescue
+        _ -> relays
+      catch
+        _, _ -> relays
+      end
+    else
+      relays
+    end
+  end
+
+  defp maybe_filter_relays(relays), do: relays
 
   # Performs a single query using a canonical filter
   defp fetch_once_canonical(relays, canonical_filter, opts) do

@@ -30,7 +30,16 @@ defmodule Nostr.Connection do
   def handle_connect(_conn, {uri, caller_pid}) do
     require Logger
     Logger.info("WebSocket connected to relay: #{uri}")
+    maybe_record_success(uri)
     {:ok, %State{uri: uri, caller_pid: caller_pid}}
+  end
+
+  @impl WebSockex
+  def handle_connect(_conn, %State{} = state) do
+    require Logger
+    Logger.info("WebSocket connected to relay: #{state.uri}")
+    maybe_record_success(state.uri)
+    {:ok, state}
   end
 
   @impl WebSockex
@@ -167,11 +176,17 @@ defmodule Nostr.Connection do
   def handle_disconnect(disconnect_info, state) do
     require Logger
     Logger.warning("WebSocket disconnected from #{state.uri}: #{inspect(disconnect_info)}")
+    maybe_record_failure(state.uri, disconnect_info)
 
     # Notify caller about disconnection
     send(state.caller_pid, {:connection_down, self(), disconnect_info})
 
-    {:reconnect, state}
+    if reconnect_allowed?(state.uri) do
+      {:reconnect, state}
+    else
+      Logger.warning("RelayHealth: skipping reconnect for #{state.uri} due to cooldown")
+      {:stop, :normal, state}
+    end
   end
 
   defp handle_event(sub_id, event, state) do
@@ -220,5 +235,33 @@ defmodule Nostr.Connection do
 
   defp via(uri) do
     {:via, Registry, {Registry.NostrConnections, {__MODULE__, uri}}}
+  end
+
+  defp maybe_record_success(relay_url) do
+    if Code.ensure_loaded?(NostrAccess.RelayHealth) do
+      NostrAccess.RelayHealth.record_success(relay_url)
+    else
+      :ok
+    end
+  end
+
+  defp maybe_record_failure(relay_url, reason) do
+    if Code.ensure_loaded?(NostrAccess.RelayHealth) do
+      if NostrAccess.RelayHealth.ignore_failure_reason?(reason) do
+        :ok
+      else
+        NostrAccess.RelayHealth.record_failure(relay_url, reason)
+      end
+    else
+      :ok
+    end
+  end
+
+  defp reconnect_allowed?(relay_url) do
+    if Code.ensure_loaded?(NostrAccess.RelayHealth) do
+      NostrAccess.RelayHealth.reconnect_allowed?(relay_url)
+    else
+      true
+    end
   end
 end

@@ -166,11 +166,17 @@ defmodule Nostr.Query do
   end
 
   @impl GenServer
-  def handle_info({:connection_down, _conn_pid, reason}, state) do
+  def handle_info({:connection_down, conn_pid, reason}, state) do
     # Connection died, mark relay as error
     # This is simplified - in a real implementation you'd track which relay
     # each connection belongs to
     Logger.warning("Connection down: #{inspect(reason)}")
+
+    case find_relay_for_connection(conn_pid, state) do
+      {:ok, relay} -> maybe_record_failure(relay, reason)
+      _ -> :ok
+    end
+
     {:noreply, state}
   end
 
@@ -237,16 +243,19 @@ defmodule Nostr.Query do
           {:connection_failed, %WebSockex.RequestError{code: 302, message: "Found"}}}},
         acc_state ->
           Logger.error("Relay #{relay} is not a valid WebSocket endpoint (HTTP 302 redirect)")
+          maybe_record_failure(relay, :invalid_websocket_redirect)
           new_relay_states = Map.put(acc_state.relay_states, relay, :error)
           %{acc_state | relay_states: new_relay_states}
 
         {:ok, {:error, relay, {:connection_failed, reason}}}, acc_state ->
           Logger.error("Connection failed for relay #{relay}: #{inspect(reason)}")
+          maybe_record_failure(relay, reason)
           new_relay_states = Map.put(acc_state.relay_states, relay, :error)
           %{acc_state | relay_states: new_relay_states}
 
         {:ok, {:error, relay, reason}}, acc_state ->
           Logger.error("Failed to start relay query for #{relay}: #{inspect(reason)}")
+          maybe_record_failure(relay, reason)
           new_relay_states = Map.put(acc_state.relay_states, relay, :error)
           %{acc_state | relay_states: new_relay_states}
 
@@ -408,6 +417,18 @@ defmodule Nostr.Query do
     Enum.all?(state.relay_states, fn {_relay, status} ->
       status == :eose or status == :error
     end)
+  end
+
+  defp maybe_record_failure(relay_url, reason) do
+    if Code.ensure_loaded?(NostrAccess.RelayHealth) do
+      if NostrAccess.RelayHealth.ignore_failure_reason?(reason) do
+        :ok
+      else
+        NostrAccess.RelayHealth.record_failure(relay_url, reason)
+      end
+    else
+      :ok
+    end
   end
 
   defp generate_sub_id do
