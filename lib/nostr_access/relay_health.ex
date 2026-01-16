@@ -138,8 +138,10 @@ defmodule NostrAccess.RelayHealth do
 
   @spec ignore_failure_reason?(term()) :: boolean()
   def ignore_failure_reason?(%{code: code}) when code in [1000, 1001], do: true
+  def ignore_failure_reason?(%WebSockex.ConnError{original: :closed}), do: true
   def ignore_failure_reason?(%{reason: {:remote, :closed}}), do: true
   def ignore_failure_reason?(%{reason: {:remote, :normal}}), do: true
+  def ignore_failure_reason?(%{reason: %WebSockex.ConnError{original: :closed}}), do: true
   def ignore_failure_reason?(%{reason: {:remote, code, _}}) when code in [1000, 1001], do: true
   def ignore_failure_reason?(%{reason: {:close, code, _}}) when code in [1000, 1001], do: true
   def ignore_failure_reason?({:remote, code, _reason}) when code in [1000, 1001], do: true
