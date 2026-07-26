@@ -28,7 +28,7 @@ defmodule NostrAccess do
 
   ```elixir
   config :nostr_access,
-    idle_ms: 500,
+    idle_ms: 5000,
     overall_timeout: 30_000,
     cache?: true,
     dedup_strategy: Nostr.Dedup.Default
@@ -39,7 +39,7 @@ defmodule NostrAccess do
   The library uses a supervision tree with:
   - Connection pools (≤3 connections per relay)
   - Subscription limits (≤10 subscriptions per connection)
-  - Automatic idle timeout (500ms default)
+  - Automatic idle timeout after REQs are sent (5000ms default)
   - Cache with TTL (2h for events, 10min for misses)
   """
 

@@ -4,20 +4,14 @@ defmodule NostrAccess.MixProject do
   def project do
     [
       app: :nostr_access,
-      version: "0.3.2",
-      elixir: "~> 1.16",
+      version: "0.3.3",
+      elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "Elixir library for querying Nostr relays with caching and deduplication",
       package: package(),
       docs: docs(),
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.post": :test,
-        "coveralls.html": :test
-      ],
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
         ignore_warnings: ".dialyzer_ignore.exs",
@@ -25,6 +19,17 @@ defmodule NostrAccess.MixProject do
         plt_add_apps: [:mix, :ex_unit]
       ],
       escript: escript()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -37,7 +42,7 @@ defmodule NostrAccess.MixProject do
 
   defp deps do
     [
-      {:websockex, "~> 0.4"},
+      {:websockex, "~> 0.5"},
       {:cachex, "~> 4.0"},
       {:jason, "~> 1.4"},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},

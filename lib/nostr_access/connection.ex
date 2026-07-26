@@ -119,6 +119,14 @@ defmodule Nostr.Connection do
           Logger.info("Relay notice from #{state.uri}: #{message}")
           {:ok, state}
 
+        {:ok, ["CLOSED", sub_id, message]} ->
+          Logger.info("Subscription closed by #{state.uri}: sub=#{sub_id} msg=#{inspect(message)}")
+          handle_closed(sub_id, message, state)
+
+        {:ok, ["CLOSED", sub_id]} ->
+          Logger.info("Subscription closed by #{state.uri}: sub=#{sub_id}")
+          handle_closed(sub_id, "", state)
+
         {:ok, other} ->
           # Log other message types
           Logger.debug("Received other message: #{inspect(other)}")
@@ -185,7 +193,8 @@ defmodule Nostr.Connection do
       {:reconnect, state}
     else
       Logger.warning("RelayHealth: skipping reconnect for #{state.uri} due to cooldown")
-      {:stop, :normal, state}
+      # WebSockex only accepts {:ok, state} to end without reconnecting
+      {:ok, state}
     end
   end
 
@@ -217,6 +226,24 @@ defmodule Nostr.Connection do
 
       nil ->
         # Unknown subscription, ignore
+        {:ok, state}
+    end
+  end
+
+  defp handle_closed(sub_id, message, state) do
+    case Map.get(state.subscriptions, sub_id) do
+      {caller_pid, _filter_json} ->
+        send(caller_pid, {:closed, self(), sub_id, message})
+
+        new_state = %{
+          state
+          | subscriptions: Map.delete(state.subscriptions, sub_id),
+            free_slots: state.free_slots + 1
+        }
+
+        {:ok, new_state}
+
+      nil ->
         {:ok, state}
     end
   end

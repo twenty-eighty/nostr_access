@@ -19,11 +19,11 @@ defmodule Nostr.Client do
 
   This is a blocking call that waits for either:
   - EOSE from every relay, or
-  - idle timeout (default: 500ms)
+  - idle timeout after subscriptions are started (default: 5000ms)
 
   ## Options
 
-  - `:idle_ms` - inactivity window in milliseconds (default: 500)
+  - `:idle_ms` - inactivity window in milliseconds after REQs are sent (default: 5000)
   - `:overall_timeout` - hard stop timeout in milliseconds (default: 30_000)
   - `:cache?` - enable/disable caching (default: true)
   - `:dedup_strategy` - deduplication strategy module (default: Nostr.Dedup.Default)

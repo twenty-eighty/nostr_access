@@ -22,6 +22,8 @@ defmodule Nostr.Query do
       connections: %{},
       # conn_pid => relay_uri
       connection_relays: %{},
+      # relay_uri => close message from CLOSED
+      close_messages: %{},
       idle_timer: nil,
       overall_timer: nil
     ]
@@ -51,12 +53,9 @@ defmodule Nostr.Query do
     # Create cache key
     cache_key = Nostr.Cache.make_key(unique_relays, canonical_filter)
 
-    # Set up timers
-    # Increased from 500ms to 5s
-    idle_ms = Keyword.get(opts, :idle_ms, 5000)
+    # Only start the overall timeout here. The idle timer must start after REQs
+    # are dispatched — otherwise a slow connect can empty-finish the query.
     overall_timeout = Keyword.get(opts, :overall_timeout, 30_000)
-
-    idle_timer = Process.send_after(self(), :idle_timeout, idle_ms)
     overall_timer = Process.send_after(self(), :overall_timeout, overall_timeout)
 
     state = %State{
@@ -68,7 +67,8 @@ defmodule Nostr.Query do
       cache_key: cache_key,
       relay_states: Map.new(unique_relays, fn relay -> {relay, :pending} end),
       connection_relays: %{},
-      idle_timer: idle_timer,
+      close_messages: %{},
+      idle_timer: nil,
       overall_timer: overall_timer
     }
 
@@ -83,11 +83,11 @@ defmodule Nostr.Query do
 
       {:miss, []} ->
         # Cache miss, proceed with query
-        {:ok, start_relay_queries(state)}
+        {:ok, arm_idle_timer(start_relay_queries(state))}
 
       {:error, _reason} ->
         # Cache error, proceed with query
-        {:ok, start_relay_queries(state)}
+        {:ok, arm_idle_timer(start_relay_queries(state))}
     end
   end
 
@@ -96,52 +96,23 @@ defmodule Nostr.Query do
     require Logger
     Logger.info("Received event: #{inspect(event)}")
 
-    # Reset idle timer
-    cancel_timer(state.idle_timer)
-
-    idle_timer =
-      Process.send_after(self(), :idle_timeout, Keyword.get(state.opts, :idle_ms, 5000))
-
-    # Add event to collection
-    new_state = %{state | events: [event | state.events], idle_timer: idle_timer}
+    new_state =
+      state
+      |> Map.update!(:events, &[event | &1])
+      |> arm_idle_timer()
 
     {:noreply, new_state}
   end
 
   @impl GenServer
   def handle_info({:eose, conn_pid, sub_id}, state) do
-    # Find which relay this connection belongs to
-    case find_relay_for_connection(conn_pid, state) do
-      {:ok, relay} ->
-        # Proactively close the subscription on the relay to avoid counting toward REQ limits
-        Nostr.Connection.close_subscription(conn_pid, sub_id)
+    complete_subscription(conn_pid, sub_id, :eose, nil, state)
+  end
 
-        new_relay_states = Map.put(state.relay_states, relay, :eose)
-        new_state = %{state | relay_states: new_relay_states}
-
-        # Free a slot on the pool by checking the connection back in, if we know the pool
-        case Map.get(state.connection_relays, conn_pid) do
-          relay when is_binary(relay) ->
-            case Registry.lookup(Registry.NostrRelayPools, {Nostr.RelayPool, relay}) do
-              [{pool_pid, _}] -> Nostr.RelayPool.checkin_conn(pool_pid, conn_pid)
-              _ -> :ok
-            end
-
-          _ ->
-            :ok
-        end
-
-        # Check if all relays have sent EOSE
-        if all_relays_eose?(new_state) do
-          finish_query(new_state)
-        else
-          {:noreply, new_state}
-        end
-
-      _ ->
-        # Unknown connection, ignore
-        {:noreply, state}
-    end
+  @impl GenServer
+  def handle_info({:closed, conn_pid, sub_id, message}, state) do
+    Logger.warning("Subscription closed: #{inspect(message)}")
+    complete_subscription(conn_pid, sub_id, :error, message, state)
   end
 
   @impl GenServer
@@ -167,17 +138,27 @@ defmodule Nostr.Query do
 
   @impl GenServer
   def handle_info({:connection_down, conn_pid, reason}, state) do
-    # Connection died, mark relay as error
-    # This is simplified - in a real implementation you'd track which relay
-    # each connection belongs to
     Logger.warning("Connection down: #{inspect(reason)}")
 
     case find_relay_for_connection(conn_pid, state) do
-      {:ok, relay} -> maybe_record_failure(relay, reason)
-      _ -> :ok
-    end
+      {:ok, relay} ->
+        maybe_record_failure(relay, reason)
 
-    {:noreply, state}
+        new_state = %{
+          state
+          | relay_states: Map.put(state.relay_states, relay, :error),
+            close_messages: Map.put(state.close_messages, relay, inspect(reason))
+        }
+
+        if all_relays_done?(new_state) do
+          finish_query(new_state)
+        else
+          {:noreply, new_state}
+        end
+
+      _ ->
+        {:noreply, state}
+    end
   end
 
   @impl GenServer
@@ -298,6 +279,47 @@ defmodule Nostr.Query do
     end
   end
 
+  defp complete_subscription(conn_pid, sub_id, status, message, state) do
+    case find_relay_for_connection(conn_pid, state) do
+      {:ok, relay} ->
+        if status == :eose do
+          # Proactively close the subscription on the relay to avoid REQ accumulation
+          Nostr.Connection.close_subscription(conn_pid, sub_id)
+        end
+
+        checkin_connection(conn_pid, relay)
+
+        close_messages =
+          if is_binary(message) do
+            Map.put(state.close_messages, relay, message)
+          else
+            state.close_messages
+          end
+
+        new_state = %{
+          state
+          | relay_states: Map.put(state.relay_states, relay, status),
+            close_messages: close_messages
+        }
+
+        if all_relays_done?(new_state) do
+          finish_query(new_state)
+        else
+          {:noreply, new_state}
+        end
+
+      _ ->
+        {:noreply, state}
+    end
+  end
+
+  defp checkin_connection(conn_pid, relay) do
+    case Registry.lookup(Registry.NostrRelayPools, {Nostr.RelayPool, relay}) do
+      [{pool_pid, _}] -> Nostr.RelayPool.checkin_conn(pool_pid, conn_pid)
+      _ -> :ok
+    end
+  end
+
   defp finish_query(state) do
     require Logger
     Logger.info("Finishing query with #{length(state.events)} events")
@@ -326,11 +348,17 @@ defmodule Nostr.Query do
           deduped_events
       end
 
-    # Cache result
-    cache_result(state, final_events)
+    result =
+      cond do
+        final_events == [] and all_relays_failed?(state) and map_size(state.close_messages) > 0 ->
+          {:error, {:subscriptions_closed, state.close_messages}}
 
-    # Send result to caller
-    send_result(state.caller, {:ok, final_events})
+        true ->
+          cache_result(state, final_events)
+          {:ok, final_events}
+      end
+
+    send_result(state.caller, result)
 
     Logger.info("Query process stopping normally")
     {:stop, :normal, state}
@@ -413,10 +441,21 @@ defmodule Nostr.Query do
     end
   end
 
-  defp all_relays_eose?(state) do
+  defp all_relays_done?(state) do
     Enum.all?(state.relay_states, fn {_relay, status} ->
       status == :eose or status == :error
     end)
+  end
+
+  defp all_relays_failed?(state) do
+    state.relay_states != %{} and
+      Enum.all?(state.relay_states, fn {_relay, status} -> status == :error end)
+  end
+
+  defp arm_idle_timer(state) do
+    cancel_timer(state.idle_timer)
+    idle_ms = Keyword.get(state.opts, :idle_ms, 5000)
+    %{state | idle_timer: Process.send_after(self(), :idle_timeout, idle_ms)}
   end
 
   defp maybe_record_failure(relay_url, reason) do
