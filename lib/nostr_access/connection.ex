@@ -120,7 +120,10 @@ defmodule Nostr.Connection do
           {:ok, state}
 
         {:ok, ["CLOSED", sub_id, message]} ->
-          Logger.info("Subscription closed by #{state.uri}: sub=#{sub_id} msg=#{inspect(message)}")
+          Logger.info(
+            "Subscription closed by #{state.uri}: sub=#{sub_id} msg=#{inspect(message)}"
+          )
+
           handle_closed(sub_id, message, state)
 
         {:ok, ["CLOSED", sub_id]} ->
