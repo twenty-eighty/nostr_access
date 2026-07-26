@@ -24,3 +24,7 @@ nostr_access-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Dialyzer PLTs are machine/Elixir-path specific; build locally or in CI cache.
+/priv/plts/*.plt
+/priv/plts/*.plt.hash
