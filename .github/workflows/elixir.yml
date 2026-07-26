@@ -22,7 +22,7 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - name: Set up Elixir
       uses: erlef/setup-beam@v1
@@ -32,7 +32,7 @@ jobs:
         otp-version: '27.3'
 
     - name: Restore dependencies cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           deps
@@ -42,7 +42,7 @@ jobs:
           ${{ runner.os }}-mix-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-
 
     - name: Restore PLT cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: priv/plts
         key: ${{ runner.os }}-plt-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('**/mix.lock') }}
@@ -65,9 +65,10 @@ jobs:
       run: mix format --check-formatted
 
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
-        file: ./cover/excoveralls.json
+        files: ./cover/excoveralls.json
         flags: unittests
         name: codecov-umbrella
-        fail_ci_if_error: true
+        fail_ci_if_error: false
+        token: ${{ secrets.CODECOV_TOKEN }}
